@@ -14,6 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Bulk `delete(_ values: [T])` and `repository.delete(_:)`.
 - `StorageLogger` sink with `StorageLogLevel` (`none`, `error`, `info`, `debug`), `NoopStorageLogger` (default) and `OSLogStorageLogger`; configured via `LocalStorageConfiguration.logger` / `.logLevel`. Lines carry operation, key and byte count — never payloads or error descriptions.
 - CI runs the test suite under ThreadSanitizer.
+- Full public README (overview, architecture, every API area, expiration semantics, DTO evolution, errors, logging, testing, thread safety, SwiftNetworkKit integration, FAQ, versioning).
+- `CONTRIBUTING.md` (branch naming, Conventional Commits, per-change changelog, release process), `SECURITY.md` and `ROADMAP.md`.
 
 ## [0.1.0] - 2026-09-25
 
