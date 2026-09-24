@@ -40,20 +40,28 @@ public final class LocalStorage: Sendable {
     // MARK: - Entities
 
     /// Inserts `value`, or replaces the stored value with the same ID (keeping its `createdAt`).
-    public func save<T: Identifiable & Codable & Sendable>(_ value: T) async throws {
-        try await save([value])
+    ///
+    /// - Parameter expiration: after this, reads treat the value as absent.
+    public func save<T: Identifiable & Codable & Sendable>(
+        _ value: T, expiration: CacheExpiration = .never
+    ) async throws {
+        try await save([value], expiration: expiration)
     }
 
     /// Saves every value in one transaction: all are stored or none are.
-    public func save<T: Identifiable & Codable & Sendable>(_ values: [T]) async throws {
+    public func save<T: Identifiable & Codable & Sendable>(
+        _ values: [T], expiration: CacheExpiration = .never
+    ) async throws {
         let typeName = StorageKey.typeName(of: T.self)
+        let timestamp = now()
+        let expiresAt = expiration.expiresAt(from: timestamp)
         let writes = try values.map { value in
             RecordWrite(
                 key: StorageKey.entity(typeName: typeName, id: String(describing: value.id)),
-                kind: .entity, typeName: typeName, payload: try encode(value)
+                kind: .entity, typeName: typeName, payload: try encode(value), expiresAt: expiresAt
             )
         }
-        try await perform { try await engine.upsert(writes, now: now()) }
+        try await perform { try await engine.upsert(writes, now: timestamp) }
     }
 
     /// The stored value with `id`, or `nil` if there is none.
@@ -89,6 +97,18 @@ public final class LocalStorage: Sendable {
         try await perform { try await engine.delete(keys: [key]) }
     }
 
+    /// Metadata for the value with `id`, including when it has expired; `nil` if there is none.
+    public func metadata<T: Identifiable & Codable & Sendable>(
+        _ type: T.Type, id: T.ID
+    ) async throws -> StorageMetadata? {
+        let key = StorageKey.entity(type, id: id)
+        guard let record = try await perform({ try await engine.record(forKey: key) }) else { return nil }
+        return StorageMetadata(
+            createdAt: record.createdAt, updatedAt: record.updatedAt, expiresAt: record.expiresAt,
+            size: record.payload.count, isExpired: record.isExpired(at: now())
+        )
+    }
+
     /// Deletes every stored value of `type`.
     public func deleteAll<T: Identifiable & Codable & Sendable>(_ type: T.Type) async throws {
         let typeName = StorageKey.typeName(of: type)
@@ -100,12 +120,16 @@ public final class LocalStorage: Sendable {
     /// Stores `value` under `key`, replacing any previous value.
     ///
     /// Not for secrets: use the Keychain for tokens and passwords.
-    public func set<V: Codable & Sendable>(_ value: V, forKey key: String) async throws {
+    public func set<V: Codable & Sendable>(
+        _ value: V, forKey key: String, expiration: CacheExpiration = .never
+    ) async throws {
+        let timestamp = now()
         let write = RecordWrite(
             key: StorageKey.keyValue(key), kind: .keyValue,
-            typeName: StorageKey.typeName(of: V.self), payload: try encode(value)
+            typeName: StorageKey.typeName(of: V.self), payload: try encode(value),
+            expiresAt: expiration.expiresAt(from: timestamp)
         )
-        try await perform { try await engine.upsert([write], now: now()) }
+        try await perform { try await engine.upsert([write], now: timestamp) }
     }
 
     /// The value stored under `key`, or `nil` if there is none.
@@ -120,6 +144,14 @@ public final class LocalStorage: Sendable {
     }
 
     // MARK: - Maintenance
+
+    /// Deletes every expired record (entities and key-value entries); returns how many.
+    ///
+    /// Reads already skip and purge expired records, so this is only needed to reclaim space.
+    @discardableResult
+    public func removeExpired() async throws -> Int {
+        try await perform { try await engine.deleteExpired(now: now()) }
+    }
 
     /// Deletes everything in this store — entities and key-value entries alike.
     public func removeAll() async throws {
