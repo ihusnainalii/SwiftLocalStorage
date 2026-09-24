@@ -8,3 +8,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 - Design spec for v0.1–v0.2 (`docs/specs/2026-09-25-swiftlocalstorage-v0.2-design.md`).
+- Swift package manifest (Swift 6 language mode; iOS 17, macOS 14, tvOS 17, watchOS 10, visionOS 1; zero dependencies).
+- `StoredRecord` SwiftData envelope (schema V1 + migration plan), internal `StorageEngine` port, `SwiftDataEngine` (`@ModelActor`) and SPI `InMemoryStorageEngine`.
+- `LocalStorageConfiguration` (`.inMemory`), pluggable `StorageEncoder` / `StorageDecoder` with JSON defaults, `LocalStorageNaming` for stable type names.
