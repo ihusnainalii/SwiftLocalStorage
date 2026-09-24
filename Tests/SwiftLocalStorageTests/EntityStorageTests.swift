@@ -90,6 +90,20 @@ struct EntityStorageTests {
         #expect(try await storage.fetch(User.self) == [b])
     }
 
+    @Test("bulk delete removes exactly the given values")
+    func bulkDelete() async throws {
+        let storage = try makeStorage()
+        let users = (0..<5).map { User.make("U\($0)") }
+        try await storage.save(users)
+
+        try await storage.delete(Array(users.prefix(3)) + [User.make("Ghost")])
+        try await storage.delete([User]())
+
+        #expect(Set(try await storage.fetch(User.self).map(\.id)) == Set(users.suffix(2).map(\.id)))
+        try await storage.repository(User.self).delete(Array(users.suffix(2)))
+        #expect(try await storage.count(User.self) == 0)
+    }
+
     @Test("deleteAll removes one type only")
     func deleteAll() async throws {
         let storage = try makeStorage()
