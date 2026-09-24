@@ -1,0 +1,64 @@
+import Foundation
+
+/// What a record is: a DTO addressed by type + ID, or a value addressed by a free-form key.
+enum RecordKind: String, Sendable {
+    case entity
+    case keyValue = "kv"
+}
+
+/// A record to insert or replace. The engine owns `createdAt` / `updatedAt`.
+struct RecordWrite: Sendable, Equatable {
+    var key: String
+    var kind: RecordKind
+    var typeName: String
+    var payload: Data
+    var expiresAt: Date?
+}
+
+/// An immutable copy of a stored record — never a live `@Model` object, so it can leave the actor.
+struct RecordSnapshot: Sendable, Equatable {
+    var key: String
+    var kind: RecordKind
+    var typeName: String
+    var payload: Data
+    var schemaVersion: Int
+    var createdAt: Date
+    var updatedAt: Date
+    var expiresAt: Date?
+
+    func isExpired(at now: Date) -> Bool {
+        expiresAt.map { $0 <= now } ?? false
+    }
+}
+
+/// The record-level persistence port behind ``LocalStorage``. It deals in keys and bytes only;
+/// encoding, key building and expiry policy live in ``LocalStorage``.
+///
+/// Default: ``SwiftDataEngine``. Tests: `InMemoryStorageEngine`.
+///
+/// Every method that takes `now` treats rows with `expiresAt <= now` as absent.
+protocol StorageEngine: Sendable {
+    /// Inserts or replaces every write atomically: either all land or none do.
+    func upsert(_ writes: [RecordWrite], now: Date) async throws
+
+    /// The record for `key`, expired or not.
+    func record(forKey key: String) async throws -> RecordSnapshot?
+
+    /// Live records of one kind + type, oldest `createdAt` first.
+    func records(kind: RecordKind, typeName: String, now: Date) async throws -> [RecordSnapshot]
+
+    /// Number of live records of one kind + type.
+    func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int
+
+    /// Deletes the given keys; missing keys are ignored.
+    func delete(keys: [String]) async throws
+
+    /// Deletes every record of one kind + type, expired or not.
+    func deleteAll(kind: RecordKind, typeName: String) async throws
+
+    /// Deletes every record with `expiresAt <= now`; returns how many.
+    func deleteExpired(now: Date) async throws -> Int
+
+    /// Deletes everything.
+    func deleteAll() async throws
+}
