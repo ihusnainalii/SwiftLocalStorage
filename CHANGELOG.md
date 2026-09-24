@@ -16,3 +16,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `LocalRepository<Entity>` via `storage.repository(User.self)`.
 - Swift Testing suites: entity CRUD, key-value, encoding round-trips, DTO evolution, key isolation, errors, cancellation, concurrency (100 parallel ops), repository.
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
+- README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
