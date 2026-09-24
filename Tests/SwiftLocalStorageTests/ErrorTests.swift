@@ -38,6 +38,43 @@ struct ErrorTests {
         #expect(try await storage.count(User.self) == 0)
     }
 
+    /// An engine whose every operation fails, standing in for a broken or full store.
+    actor FailingEngine: StorageEngine {
+        struct DiskFull: Error {}
+        func upsert(_ writes: [RecordWrite], now: Date) async throws { throw DiskFull() }
+        func record(forKey key: String) async throws -> RecordSnapshot? { throw DiskFull() }
+        func records(kind: RecordKind, typeName: String, now: Date) async throws -> [RecordSnapshot] { throw DiskFull() }
+        func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int { throw DiskFull() }
+        func delete(keys: [String]) async throws { throw DiskFull() }
+        func deleteAll(kind: RecordKind, typeName: String) async throws { throw DiskFull() }
+        func deleteExpired(now: Date) async throws -> Int { throw DiskFull() }
+        func deleteAll() async throws { throw DiskFull() }
+    }
+
+    @Test("store failures surface as persistenceFailed wrapping the cause")
+    func persistenceFailure() async throws {
+        let storage = LocalStorage(configuration: .inMemory, engine: FailingEngine(), now: { Date() })
+        let operations: [@Sendable () async throws -> Void] = [
+            { try await storage.save(User.make()) },
+            { _ = try await storage.fetch(User.self, id: UUID()) },
+            { _ = try await storage.fetch(User.self) },
+            { _ = try await storage.count(User.self) },
+            { try await storage.delete(User.self, id: UUID()) },
+            { try await storage.deleteAll(User.self) },
+            { _ = try await storage.removeExpired() },
+            { try await storage.removeAll() },
+        ]
+
+        for operation in operations {
+            do {
+                try await operation()
+                Issue.record("expected persistenceFailed")
+            } catch let LocalStorageError.persistenceFailed(underlying) {
+                #expect(underlying is FailingEngine.DiskFull)
+            }
+        }
+    }
+
     @Test("a cancelled task throws cancelled and writes nothing")
     func cancellation() async throws {
         let storage = try makeStorage()
