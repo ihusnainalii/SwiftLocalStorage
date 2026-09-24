@@ -13,3 +13,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `LocalStorageConfiguration` (`.inMemory`), pluggable `StorageEncoder` / `StorageDecoder` with JSON defaults, `LocalStorageNaming` for stable type names.
 - `LocalStorage` façade: entity `save` (single + transactional batch), `fetch(_:id:)`, `fetch(_:)`, `count`, `exists`, `delete`, `deleteAll`; key-value `set` / `get` / `remove`; `removeAll`.
 - `LocalStorageError` with a stable `Code` discriminant; missing records return `nil`, cancellation maps to `.cancelled`.
+- `LocalRepository<Entity>` via `storage.repository(User.self)`.
