@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+
+jobs:
+  test:
+    name: Build (-warnings-as-errors) + test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-build-${{ runner.os }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
+      - run: swift build --build-tests -Xswiftc -warnings-as-errors
+      - run: swift test --parallel
