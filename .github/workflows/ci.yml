@@ -25,3 +25,4 @@ jobs:
           key: spm-build-${{ runner.os }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
       - run: swift build --build-tests -Xswiftc -warnings-as-errors
       - run: swift test --parallel
+      - run: swift test --sanitize=thread
