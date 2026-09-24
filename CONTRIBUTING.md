@@ -44,6 +44,7 @@ Start a Discussion that describes the problem you're trying to solve. Check
 swift build --build-tests -Xswiftc -warnings-as-errors   # must be clean
 swift test --parallel                                     # all green
 swift test --sanitize=thread                              # no data races
+bash scripts/coverage.sh                                  # line coverage must stay >= 90%
 ```
 
 ## Code conventions

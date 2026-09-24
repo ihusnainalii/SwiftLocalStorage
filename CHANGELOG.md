@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-25
+
+### Added
+- Engine contract suite run against both the SwiftData and in-memory engines, plus store-failure (`persistenceFailed`) and repository metadata tests.
+- `scripts/coverage.sh`: runs tests with coverage, writes lcov/summary reports and fails below a 90% line-coverage floor (`COVERAGE_FLOOR` to override); CI runs it and posts the summary.
+
+### Changed
+- Internal: removed an unreachable `LocalStorageError` re-throw branch in the error mapper (no API change).
+
 ## [0.2.0] - 2026-09-25
 
 ### Added
@@ -32,6 +41,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ihusnainalii/SwiftLocalStorage/releases/tag/v0.1.0

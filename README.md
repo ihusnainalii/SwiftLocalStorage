@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.2.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.2.1 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -510,6 +510,9 @@ SPI types are for tests. They are not covered by the semantic-versioning guarant
 - All SwiftData work runs on one `@ModelActor`, so there is no shared `ModelContext` and no data
   race. The test suite runs 100 concurrent saves, reads and mixed operations, and passes under
   ThreadSanitizer.
+- The same behavioral contract suite runs against both the SwiftData engine and the in-memory test
+  double, so tests written against the double hold for production. Library line coverage is 96%, and CI
+  fails below 90%.
 - Encoding and decoding run on the caller's task, outside the actor, so they don't queue behind
   other storage work.
 - Batch saves are atomic: the whole batch is stored, or none of it is.
@@ -634,6 +637,7 @@ Conventional Commits, a `CHANGELOG.md` entry with every change, and green checks
 swift build --build-tests -Xswiftc -warnings-as-errors
 swift test --parallel
 swift test --sanitize=thread
+bash scripts/coverage.sh          # line coverage floor: 90%
 ```
 
 ---

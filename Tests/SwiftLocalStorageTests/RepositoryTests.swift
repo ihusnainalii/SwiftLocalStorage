@@ -16,6 +16,8 @@ struct RepositoryTests {
         #expect(try await users.count() == 3)
         #expect(try await users.fetch(id: a.id) == a)
         #expect(try await users.exists(id: b.id))
+        #expect(try await users.metadata(id: a.id)?.size ?? 0 > 0)
+        #expect(try await users.metadata(id: UUID()) == nil)
         #expect(Set(try await users.fetchAll().map(\.id)) == [a.id, b.id, c.id])
 
         try await users.delete(id: a.id)
