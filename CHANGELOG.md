@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 - Engine contract suite run against both the SwiftData and in-memory engines, plus store-failure (`persistenceFailed`) and repository metadata tests.
+- `scripts/coverage.sh`: runs tests with coverage, writes lcov/summary reports and fails below a 90% line-coverage floor (`COVERAGE_FLOOR` to override); CI runs it and posts the summary.
 
 ### Removed
 - Unreachable `LocalStorageError` re-throw branch in the internal error mapper.
