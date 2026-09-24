@@ -24,5 +24,9 @@ jobs:
           path: .build
           key: spm-build-${{ runner.os }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
       - run: swift build --build-tests -Xswiftc -warnings-as-errors
-      - run: swift test --parallel
+      - name: Test + coverage (90% line floor)
+        run: bash scripts/coverage.sh
+      - name: Coverage to job summary
+        if: always()
+        run: cat .build/coverage/summary.md >> "$GITHUB_STEP_SUMMARY" || true
       - run: swift test --sanitize=thread
