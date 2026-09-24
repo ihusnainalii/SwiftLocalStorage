@@ -6,17 +6,25 @@ public struct LocalStorageConfiguration: Sendable {
     public var isStoredInMemoryOnly: Bool
     public var encoder: any StorageEncoder
     public var decoder: any StorageDecoder
+    /// Where log lines go. Lines never contain payloads.
+    public var logger: any StorageLogger
+    /// The loudest level emitted; `.none` (the default) disables logging.
+    public var logLevel: StorageLogLevel
 
     public init(
         name: String = "SwiftLocalStorage",
         isStoredInMemoryOnly: Bool = false,
         encoder: any StorageEncoder = JSONStorageEncoder(),
-        decoder: any StorageDecoder = JSONStorageDecoder()
+        decoder: any StorageDecoder = JSONStorageDecoder(),
+        logger: any StorageLogger = NoopStorageLogger(),
+        logLevel: StorageLogLevel = .none
     ) {
         self.name = name
         self.isStoredInMemoryOnly = isStoredInMemoryOnly
         self.encoder = encoder
         self.decoder = decoder
+        self.logger = logger
+        self.logLevel = logLevel
     }
 
     /// An in-memory store; nothing touches the file system.
