@@ -44,6 +44,10 @@ public struct LocalRepository<Entity: Identifiable & Codable & Sendable>: Sendab
         try await storage.delete(Entity.self, id: id)
     }
 
+    public func delete(_ entities: [Entity]) async throws {
+        try await storage.delete(entities)
+    }
+
     public func deleteAll() async throws {
         try await storage.deleteAll(Entity.self)
     }
