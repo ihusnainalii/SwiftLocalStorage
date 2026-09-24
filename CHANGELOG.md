@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Added
+- Engine contract suite run against both the SwiftData and in-memory engines, plus store-failure (`persistenceFailed`) and repository metadata tests.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added
