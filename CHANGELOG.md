@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
+### Added
+- `CacheExpiration` (`.never`, `.seconds`, `.minutes`, `.hours`, `.days`, `.date`) on `save`, batch `save`, `set` and repository `save`; expired records read as absent and are purged lazily.
+- `StorageMetadata` via `metadata(_:id:)` / `repository.metadata(id:)` — created/updated/expiry dates, payload size, `isExpired`.
+- `removeExpired()` to reclaim space from expired records; returns the number deleted.
+- Bulk `delete(_ values: [T])` and `repository.delete(_:)`.
+- `StorageLogger` sink with `StorageLogLevel` (`none`, `error`, `info`, `debug`), `NoopStorageLogger` (default) and `OSLogStorageLogger`; configured via `LocalStorageConfiguration.logger` / `.logLevel`. Lines carry operation, key and byte count — never payloads or error descriptions.
+- CI runs the test suite under ThreadSanitizer.
+- Full public README (overview, architecture, every API area, expiration semantics, DTO evolution, errors, logging, testing, thread safety, SwiftNetworkKit integration, FAQ, versioning).
+- `CONTRIBUTING.md` (branch naming, Conventional Commits, per-change changelog, release process), `SECURITY.md` and `ROADMAP.md`.
+
 ## [0.1.0] - 2026-09-25
 
 ### Added
@@ -20,5 +32,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ihusnainalii/SwiftLocalStorage/releases/tag/v0.1.0

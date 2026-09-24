@@ -12,12 +12,12 @@ public struct LocalRepository<Entity: Identifiable & Codable & Sendable>: Sendab
         self.storage = storage
     }
 
-    public func save(_ entity: Entity) async throws {
-        try await storage.save(entity)
+    public func save(_ entity: Entity, expiration: CacheExpiration = .never) async throws {
+        try await storage.save(entity, expiration: expiration)
     }
 
-    public func save(_ entities: [Entity]) async throws {
-        try await storage.save(entities)
+    public func save(_ entities: [Entity], expiration: CacheExpiration = .never) async throws {
+        try await storage.save(entities, expiration: expiration)
     }
 
     public func fetch(id: Entity.ID) async throws -> Entity? {
@@ -36,8 +36,16 @@ public struct LocalRepository<Entity: Identifiable & Codable & Sendable>: Sendab
         try await storage.exists(Entity.self, id: id)
     }
 
+    public func metadata(id: Entity.ID) async throws -> StorageMetadata? {
+        try await storage.metadata(Entity.self, id: id)
+    }
+
     public func delete(id: Entity.ID) async throws {
         try await storage.delete(Entity.self, id: id)
+    }
+
+    public func delete(_ entities: [Entity]) async throws {
+        try await storage.delete(entities)
     }
 
     public func deleteAll() async throws {
