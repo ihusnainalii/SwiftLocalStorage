@@ -222,9 +222,8 @@ public final class LocalStorage: Sendable {
             let result = try await body()
             log(level, operation())
             return result
-        } catch let error as LocalStorageError {
-            throw error
         } catch {
+            // Engines never throw LocalStorageError, so every error here is a store failure.
             // Only the error's type: its description could echo stored data.
             log(.error, "\(operation()) failed: \(Swift.type(of: error))")
             throw LocalStorageError.persistenceFailed(underlying: error)
