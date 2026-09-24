@@ -97,6 +97,12 @@ public final class LocalStorage: Sendable {
         try await perform { try await engine.delete(keys: [key]) }
     }
 
+    /// Deletes every given value by ID in one operation. Missing values are ignored.
+    public func delete<T: Identifiable & Codable & Sendable>(_ values: [T]) async throws {
+        let keys = values.map { StorageKey.entity(T.self, id: $0.id) }
+        try await perform { try await engine.delete(keys: keys) }
+    }
+
     /// Metadata for the value with `id`, including when it has expired; `nil` if there is none.
     public func metadata<T: Identifiable & Codable & Sendable>(
         _ type: T.Type, id: T.ID

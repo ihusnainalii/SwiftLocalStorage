@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `CacheExpiration` (`.never`, `.seconds`, `.minutes`, `.hours`, `.days`, `.date`) on `save`, batch `save`, `set` and repository `save`; expired records read as absent and are purged lazily.
 - `StorageMetadata` via `metadata(_:id:)` / `repository.metadata(id:)` — created/updated/expiry dates, payload size, `isExpired`.
 - `removeExpired()` to reclaim space from expired records; returns the number deleted.
+- Bulk `delete(_ values: [T])` and `repository.delete(_:)`.
 
 ## [0.1.0] - 2026-09-25
 
