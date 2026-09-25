@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 - Internal SwiftData schema V3 (nullable index slots + signature) with a lightweight V2 → V3 stage; containers now open with a single `CurrentStorageSchema` alias shared with `StoredRecord`, so the two cannot drift.
+- Schema migration tests now open real V1 and V2 store files (committed fixtures written by the old schemas) instead of creating old-schema containers in the test process.
 
 ## [0.5.0] - 2026-09-25
 
