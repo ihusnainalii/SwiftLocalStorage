@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 - Demo app `Examples/SwiftLocalStorageDemo`: a SwiftUI iOS app built with Clean Architecture + MVVM (Domain / Data / Presentation, `AppContainer` composition root) with Catalog (cache-first with expiry countdown), Notes (repository CRUD), Settings (key-value) and Inspector (counts, `removeExpired`, live storage log) tabs.
 - Demo unit tests (Swift Testing) running the real repositories and view models on an in-memory store with an injected clock: cache-first, expiry, sorting, notes, settings, maintenance.
+- CI job that builds and tests the demo app on the iOS Simulator.
 
 ## [0.2.1] - 2026-09-25
 
