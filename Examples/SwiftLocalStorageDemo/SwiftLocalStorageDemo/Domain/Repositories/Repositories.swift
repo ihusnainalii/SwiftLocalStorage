@@ -5,8 +5,8 @@ import Foundation
 protocol ProductRepository: Sendable {
     /// Cache-first unless `forceRefresh`: live cached products win, otherwise fetch and cache.
     func catalog(forceRefresh: Bool, lifetime: AppSettings.CacheLifetime) async throws -> CatalogSnapshot
-    /// Page `page` (1-based) of cached products, optionally only one category.
-    func cachedPage(_ page: Int, size: Int, category: String?) async throws -> ProductPage
+    /// Page `page` (1-based) of cached products, optionally only one category, optionally by price.
+    func cachedPage(_ page: Int, size: Int, category: String?, sortedByPrice: Bool) async throws -> ProductPage
     func delete(_ products: [Product]) async throws
     func clearCache() async throws
 }

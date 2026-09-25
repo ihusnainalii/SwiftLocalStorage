@@ -16,7 +16,7 @@ struct CatalogView: View {
                             Task { await viewModel.select(category: category) }
                         }
                     } footer: {
-                        Text("Filters with fetch(_:where:), a closure over the cached DTOs.")
+                        Text("Filtered and sorted on indexed fields inside the store: page(_:matching:orderedBy:).")
                     }
                 }
                 Section {

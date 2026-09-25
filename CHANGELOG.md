@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-25
+
+### Added
+- Design spec for v0.6 indexed fields (`docs/specs/2026-09-25-swiftlocalstorage-v0.6-indexes-design.md`).
+- `LocalStorageIndexed`: declare up to three indexed fields per type (`StorageIndex.string` / `.number` over `Int`, `Double`, `Float`, `Date`, `Bool`, …), stored next to each record.
+- `fetch(_:matching:orderedBy:options:)`, `count(_:matching:)` and `page(_:matching:orderedBy:page:pageSize:)` with `StorageFilter` (`equals`, `atLeast`, `atMost`, `between`; ANDed) and `StorageIndexOrder`, all evaluated inside the store; repository equivalents.
+- Automatic re-indexing: records saved before a type was indexed, or under a different declaration, are re-indexed on the next indexed query (tracked by a per-record index signature); DTO migration write-backs refresh index values.
+- Index tests on both engines: string/number/Bool/Date/Double equality, ranges, ANDed and narrowed conditions, missing values, ordering with ties and nils, limit/offset/count/page, expiry, updates, re-indexing (unindexed records, changed and alternating declarations), migration write-back, repository; plus a live-query failure test.
+- README "Indexed fields" section (declaration, filters table, missing values, re-indexing); roadmap, security policy and demo README updated for 0.6.
+
+### Changed
+- Internal SwiftData schema V3 (nullable index slots + signature) with a lightweight V2 → V3 stage; containers now open with a single `CurrentStorageSchema` alias shared with `StoredRecord`, so the two cannot drift.
+- Schema migration tests now open real V1 and V2 store files (committed fixtures written by the old schemas) instead of creating old-schema containers in the test process.
+- Demo app: `Product` declares `category` and `price` indexes; the Catalog filters and sorts by price in the store via `page(_:matching:orderedBy:page:pageSize:)`, so price order now holds across pages.
+
 ## [0.5.0] - 2026-09-25
 
 ### Added
@@ -107,7 +122,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...v0.3.0

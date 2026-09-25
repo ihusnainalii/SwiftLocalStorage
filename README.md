@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.5.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.6.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -35,6 +35,7 @@
 - [Key-value storage](#key-value-storage)
 - [Repositories](#repositories)
 - [Queries: sorting, paging, filtering](#queries-sorting-paging-filtering)
+- [Indexed fields](#indexed-fields)
 - [Observation and SwiftUI](#observation-and-swiftui)
 - [Cache expiration](#cache-expiration)
 - [Metadata](#metadata)
@@ -98,6 +99,7 @@ natural fit for caching the DTOs that SwiftNetworkKit decodes.
 | **Key-value storage** | `set` / `get` / `remove` for any `Codable` value under a string key |
 | **Repositories** | `storage.repository(User.self)` — a typed handle without the `T.self` noise |
 | **Queries** | Four sort orders, `limit` / `offset` pushed down to SwiftData, 1-based pages with totals, and closure filters on any DTO field |
+| **Indexed fields** | Declare up to three fields per type; `matching:` filters, `orderedBy:`, counts and pages on them run inside SwiftData |
 | **Observation** | Typed change feeds (`AsyncStream`), coalescing live queries for SwiftUI, and batched iteration of large types |
 | **Cache expiration** | `.seconds`, `.minutes`, `.hours`, `.days`, `.date`, `.never`; expired records read as absent and are purged lazily; `removeExpired()` |
 | **Metadata** | created/updated/expiry dates, payload size and expiry state per record |
@@ -134,7 +136,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.5.0"),
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.6.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),
@@ -145,7 +147,7 @@ targets: [
 
 **File ▸ Add Package Dependencies…**, paste
 `https://github.com/ihusnainalii/SwiftLocalStorage.git`, choose **Up to Next Minor Version** from
-`0.5.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
+`0.6.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
 
 ---
 
@@ -321,10 +323,56 @@ stable. Expired records never appear in results, counts or page totals.
 > [!NOTE]
 > DTO fields live inside encoded payloads, so `fetch(_:where:)` loads and decodes every live value
 > of the type before filtering. Sorting, `limit`, `offset` and `page` run inside the store and load
-> only the requested rows.
+> only the requested rows. For hot filters and sorts on DTO fields, use
+> [indexed fields](#indexed-fields).
 
 Repositories have the same calls: `fetchAll(options:)`, `fetch(where:options:)` and
 `page(_:pageSize:sort:)`.
+
+---
+
+## Indexed fields
+
+Declare up to three fields per type. Their values are stored next to each record, so filters,
+ordering, counts and pages on them run inside SwiftData, and only the rows you get back are decoded.
+
+```swift
+extension User: LocalStorageIndexed {
+    static var storageIndexes: [StorageIndex<User>] {
+        [
+            .string("role") { $0.role.rawValue },
+            .number("age") { $0.age },              // Int, Double, Float, Date or Bool
+            .number("lastSeen") { $0.lastSeen },   // optional: nil means "no value"
+        ]
+    }
+}
+
+let admins = try await storage.fetch(
+    User.self,
+    matching: [.equals("role", "admin"), .atLeast("age", 18)],   // conditions are ANDed
+    orderedBy: .descending("lastSeen"),
+    options: FetchOptions(limit: 20)
+)
+let adults = try await storage.count(User.self, matching: [.atLeast("age", 18)])
+let page   = try await storage.page(User.self, matching: [.between("age", 18...30)],
+                                    orderedBy: .ascending("age"), page: 1, pageSize: 50)
+```
+
+| Filter | Matches |
+|---|---|
+| `.equals(name, "text")` | string index equal to the value |
+| `.equals(name, 42)` / `true` / a `Date` | number index equal to the value |
+| `.atLeast(name, value)` / `.atMost(name, value)` | number index ≥ / ≤ the value |
+| `.between(name, lower...upper)` | number index within the range |
+
+- **Missing values:** a record whose indexed value is `nil` never matches a condition on that
+  index. It sorts first ascending and last descending, and ties keep insertion order.
+- **Adding or changing indexes is safe.** Records saved before the type was indexed, or under a
+  different declaration, are re-indexed automatically on the next indexed query. DTO migrations
+  refresh index values too.
+- Closures make computed indexes easy, for example `.string("email") { $0.email.lowercased() }`.
+- Repositories have the same calls: `fetch(matching:orderedBy:options:)`, `count(matching:)` and
+  `page(matching:orderedBy:page:pageSize:)`.
 
 ---
 
@@ -702,7 +750,7 @@ repository is a candidate for a future companion package; see the [roadmap](ROAD
 
 [`Examples/SwiftLocalStorageDemo`](Examples/SwiftLocalStorageDemo) is a complete SwiftUI iOS app
 built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with paging, a
-category filter and a live expiry countdown; **Notes**, a CRUD repository driven by a live query, whose `Note` is on version 2 with a migration;
+category filter and price sort on indexed fields, and a live expiry countdown; **Notes**, a CRUD repository driven by a live query, whose `Note` is on version 2 with a migration;
 **Settings** (key-value); and an **Inspector** with a live change feed, `removeExpired()` and the
 storage log. The Domain layer never imports the package, and its
 tests use an in-memory store with an injected clock.
@@ -728,9 +776,9 @@ open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
 
 ## Known limitations
 
-- **Field filters run in memory.** `fetch(_:where:)` decodes every live value of the type before
-  filtering. Sorting and paging by metadata (`createdAt`, `updatedAt`) run in the store. Sorting by
-  a DTO field means sorting the fetched array yourself.
+- **Closure filters run in memory.** `fetch(_:where:)` decodes every live value of the type before
+  filtering. Use [indexed fields](#indexed-fields) for filters and sorts that must scale. Indexed
+  queries support AND only, with up to three indexes per type and no string prefix search.
 - **Change events are per instance.** Only writes made through the same `LocalStorage` instance are
   observed. Share one instance per store.
 - **Apple platforms only**, because SwiftData is Apple-only.
@@ -790,8 +838,8 @@ Every release is tagged `vX.Y.Z`, has a GitHub Release, and has a section in
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3, observation in 0.4 and DTO migrations in 0.5.
-Next up: stored index fields (0.6), then an API freeze for 1.0.
+See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3, observation in 0.4, DTO migrations in 0.5 and
+indexed fields in 0.6. Next up: the 1.0 API freeze.
 
 ---
 

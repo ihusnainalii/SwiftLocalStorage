@@ -21,6 +21,7 @@ let package = Package(
         .testTarget(
             name: "SwiftLocalStorageTests",
             dependencies: ["SwiftLocalStorage"],
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
