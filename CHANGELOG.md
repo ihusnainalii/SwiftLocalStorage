@@ -18,6 +18,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 - SwiftData engine answers `limit: 0` with no rows (SwiftData treats `fetchLimit == 0` as unlimited).
 
+### Changed
+- Demo app: Catalog pages the cache 4 at a time with **Load more** (`page(_:page:pageSize:)`), filters by category (`fetch(_:where:)`), shows the empty state inside the list, and defaults the cache lifetime to 1 minute.
+
 ## [0.2.3] - 2026-09-25
 
 ### Fixed

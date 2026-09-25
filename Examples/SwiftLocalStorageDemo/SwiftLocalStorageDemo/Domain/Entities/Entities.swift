@@ -41,7 +41,7 @@ struct AppSettings: Codable, Sendable, Equatable {
     }
 
     var appearance: Appearance = .system
-    var cacheLifetime: CacheLifetime = .fifteenSeconds
+    var cacheLifetime: CacheLifetime = .oneMinute
     var sortByPrice = false
 }
 
@@ -58,6 +58,16 @@ struct CatalogSnapshot: Sendable, Equatable {
     var expiresAt: Date?
     var payloadBytesPerItem: Int?
     var networkRequestCount: Int
+    /// Whether `products` (and pages shown from them) follow the "sort by price" preference.
+    var isSortedByPrice = false
+}
+
+/// One page of cached products.
+struct ProductPage: Sendable, Equatable {
+    var products: [Product]
+    var page: Int
+    var totalCount: Int
+    var hasNextPage: Bool
 }
 
 /// Launch bookkeeping, persisted as simple key-value entries.
