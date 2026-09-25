@@ -9,6 +9,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 - Design spec for v0.3 queries (`docs/specs/2026-09-25-swiftlocalstorage-v0.3-queries-design.md`).
+- `FetchOptions` (`sort`, `limit`, `offset`) and `StorageSort` (`oldestFirst`, `newestFirst`, `recentlyUpdated`, `leastRecentlyUpdated`, ties broken by insertion order) via `fetch(_:options:)`; sorting and slicing run inside the store so only requested rows are decoded.
+- `page(_:page:pageSize:sort:)` returning `StoragePage` (1-based `page`, `pageSize`, `totalCount`, `totalPages`, `hasNextPage`).
+- `fetch(_:where:options:)` to filter on any DTO field with a Swift closure (in memory, after decoding), then sort and slice.
+- Repository equivalents: `fetchAll(options:)`, `fetch(where:options:)`, `page(_:pageSize:sort:)`.
+
+### Fixed
+- SwiftData engine answers `limit: 0` with no rows (SwiftData treats `fetchLimit == 0` as unlimited).
 
 ## [0.2.3] - 2026-09-25
 

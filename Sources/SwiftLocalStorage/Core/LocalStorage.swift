@@ -73,11 +73,46 @@ public final class LocalStorage: Sendable {
 
     /// Every stored value of `type`, oldest first.
     public func fetch<T: Identifiable & Codable & Sendable>(_ type: T.Type) async throws -> [T] {
+        try await fetch(type, options: .default)
+    }
+
+    /// Stored values of `type`, sorted and sliced by `options` inside the store, so only the
+    /// requested values are loaded and decoded.
+    public func fetch<T: Identifiable & Codable & Sendable>(
+        _ type: T.Type, options: FetchOptions
+    ) async throws -> [T] {
         let typeName = StorageKey.typeName(of: type)
-        let records = try await perform("fetch all \(typeName)", level: .debug) {
-            try await engine.records(kind: .entity, typeName: typeName, now: now())
+        let records = try await perform("fetch \(typeName) \(options.logDescription)", level: .debug) {
+            try await engine.records(
+                kind: .entity, typeName: typeName, now: now(),
+                sort: options.sort, limit: options.limit, offset: options.offset
+            )
         }
         return try records.map { try decode(type, from: $0) }
+    }
+
+    /// Stored values of `type` matching `isIncluded`, then sorted and sliced by `options`.
+    ///
+    /// DTO fields live inside encoded payloads, so the filter runs in memory: every live value of
+    /// `type` is loaded and decoded first. Prefer ``fetch(_:options:)`` when you don't need a filter.
+    public func fetch<T: Identifiable & Codable & Sendable>(
+        _ type: T.Type, where isIncluded: (T) throws -> Bool, options: FetchOptions = .default
+    ) async throws -> [T] {
+        // ponytail: decode-all + in-memory filter; add stored-field indexes if large types need it.
+        let all = try await fetch(type, options: FetchOptions(sort: options.sort))
+        let sliced = try all.filter(isIncluded).dropFirst(options.offset)
+        return Array(options.limit.map { sliced.prefix($0) } ?? sliced)
+    }
+
+    /// Page `page` (1-based) of `pageSize` values of `type`, with the totals for paging UI.
+    public func page<T: Identifiable & Codable & Sendable>(
+        _ type: T.Type, page: Int, pageSize: Int, sort: StorageSort = .oldestFirst
+    ) async throws -> StoragePage<T> {
+        precondition(page >= 1, "page is 1-based")
+        precondition(pageSize >= 1, "pageSize must be at least 1")
+        let items = try await fetch(type, options: FetchOptions(sort: sort, limit: pageSize, offset: (page - 1) * pageSize))
+        let total = try await count(type)
+        return StoragePage(items: items, page: page, pageSize: pageSize, totalCount: total)
     }
 
     /// How many values of `type` are stored.
@@ -239,4 +274,10 @@ public final class LocalStorage: Sendable {
 
 extension [RecordWrite] {
     fileprivate var byteCount: Int { reduce(0) { $0 + $1.payload.count } }
+}
+
+extension FetchOptions {
+    fileprivate var logDescription: String {
+        "sort=\(sort) offset=\(offset)" + (limit.map { " limit=\($0)" } ?? "")
+    }
 }
