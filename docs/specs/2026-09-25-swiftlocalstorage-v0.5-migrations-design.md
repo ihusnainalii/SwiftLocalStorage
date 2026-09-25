@@ -56,7 +56,7 @@ public protocol LocalStorageVersioned {
 public struct StorageMigration: Sendable {
     public let typeName: String              // the stored type's storage name
     public let fromVersion: Int              // migrates fromVersion → fromVersion + 1
-    public init<Stored, Old: Decodable, New: Encodable>(
+    public init<Stored, Old: Decodable & Sendable, New: Encodable & Sendable>(
         _ stored: Stored.Type, from version: Int,
         transform: @escaping @Sendable (Old) throws -> New)            // uses the configured encoder/decoder
     public init<Stored>(_ stored: Stored.Type, from version: Int,
@@ -75,8 +75,8 @@ LocalStorageError.migrationFailed(key: String, underlying: any Error & Sendable)
 | `save` | stores the payload with `T.storageVersion` (1 when not `LocalStorageVersioned`) |
 | Read of a record at the current version | decoded as before, no migration |
 | Read of an older record | steps `v → v+1 → … → current` run in memory; the result is decoded, then written back (payload + version) **without touching `createdAt` / `updatedAt` / `expiresAt` or emitting change events** |
-| Missing step in the chain | `migrationFailed(key, MigrationError.missingStep(from:))`; record untouched |
-| Stored version newer than the type's (app downgrade) | `migrationFailed(key, MigrationError.storedVersionNewer(stored:current:))`; record untouched |
+| Missing step in the chain | `migrationFailed(key, StorageMigrationError.missingStep(typeName:from:))`; record untouched |
+| Stored version newer than the type's (app downgrade) | `migrationFailed(key, StorageMigrationError.storedVersionNewer(stored:current:))`; record untouched |
 | A step throws | `migrationFailed(key, <thrown error>)`; record untouched |
 | Migrated payload doesn't decode as `T` | `decodingFailed(key, …)`; record untouched |
 | `migrateAll(T.self)` | upgrades every live outdated record of `T`; returns the count; stops at the first failure |

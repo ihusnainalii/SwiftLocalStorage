@@ -9,6 +9,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 - Design spec for v0.5 DTO migrations (`docs/specs/2026-09-25-swiftlocalstorage-v0.5-migrations-design.md`).
+- `LocalStorageVersioned` to declare a DTO's current version (unversioned types are version 1) and `StorageMigration` steps (typed `Old → New`, or raw payload) registered in `LocalStorageConfiguration.migrations`.
+- Reads upgrade older records through the step chain and write the upgraded payload back once, keeping timestamps and emitting no change events; `migrateAll(_:)` upgrades a whole type eagerly.
+- `StorageMetadata.version` and `StorageMigrationError` (`missingStep`, `storedVersionNewer`).
+
+### Changed
+- **Breaking (pre-1.0):** `LocalStorageError` gains `migrationFailed(key:underlying:)` (and `Code.migrationFailed`); exhaustive switches need the new case.
+- Internal: records now store their DTO version (the existing `schemaVersion` column) on insert and update; new engine `rewrite(key:payload:schemaVersion:)` for migration write-backs.
 
 ## [0.4.0] - 2026-09-25
 

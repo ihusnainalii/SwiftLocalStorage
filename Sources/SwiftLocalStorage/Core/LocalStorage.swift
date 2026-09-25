@@ -20,6 +20,8 @@ public final class LocalStorage: Sendable {
     let engine: any StorageEngine
     let now: @Sendable () -> Date
     let hub = ChangeHub()
+    /// `typeName → fromVersion → step`, built once from the configuration.
+    let migrations: [String: [Int: StorageMigration]]
 
     /// Opens (or creates) the SwiftData store described by `configuration`.
     ///
@@ -36,6 +38,15 @@ public final class LocalStorage: Sendable {
         self.configuration = configuration
         self.engine = engine
         self.now = now
+        var table: [String: [Int: StorageMigration]] = [:]
+        for step in configuration.migrations {
+            precondition(
+                table[step.typeName]?[step.fromVersion] == nil,
+                "Duplicate StorageMigration for \(step.typeName) from version \(step.fromVersion)"
+            )
+            table[step.typeName, default: [:]][step.fromVersion] = step
+        }
+        migrations = table
     }
 
     // MARK: - Entities
@@ -59,7 +70,8 @@ public final class LocalStorage: Sendable {
         let writes = try values.map { value in
             RecordWrite(
                 key: StorageKey.entity(typeName: typeName, id: String(describing: value.id)),
-                kind: .entity, typeName: typeName, payload: try encode(value), expiresAt: expiresAt
+                kind: .entity, typeName: typeName, payload: try encode(value), expiresAt: expiresAt,
+                schemaVersion: StorageKey.version(of: T.self)
             )
         }
         var newKeys = try await perform("save \(typeName) ×\(writes.count) (\(writes.byteCount) bytes)", level: .info) {
@@ -94,7 +106,12 @@ public final class LocalStorage: Sendable {
                 sort: options.sort, limit: options.limit, offset: options.offset
             )
         }
-        return try records.map { try decode(type, from: $0) }
+        var values: [T] = []
+        values.reserveCapacity(records.count)
+        for record in records {
+            values.append(try await decode(type, from: record))
+        }
+        return values
     }
 
     /// Stored values of `type` matching `isIncluded`, then sorted and sliced by `options`.
@@ -168,7 +185,7 @@ public final class LocalStorage: Sendable {
         guard let record = try await perform("metadata \(key)", level: .debug, { try await engine.record(forKey: key) }) else { return nil }
         return StorageMetadata(
             createdAt: record.createdAt, updatedAt: record.updatedAt, expiresAt: record.expiresAt,
-            size: record.payload.count, isExpired: record.isExpired(at: now())
+            size: record.payload.count, isExpired: record.isExpired(at: now()), version: record.schemaVersion
         )
     }
 
@@ -193,7 +210,7 @@ public final class LocalStorage: Sendable {
         let write = RecordWrite(
             key: StorageKey.keyValue(key), kind: .keyValue,
             typeName: StorageKey.typeName(of: V.self), payload: try encode(value),
-            expiresAt: expiration.expiresAt(from: timestamp)
+            expiresAt: expiration.expiresAt(from: timestamp), schemaVersion: StorageKey.version(of: V.self)
         )
         try await perform("set \(write.key) (\(write.payload.count) bytes)", level: .info) {
             try await engine.upsert([write], now: timestamp)
@@ -227,6 +244,31 @@ public final class LocalStorage: Sendable {
     public func removeAll() async throws {
         try await perform("remove all", level: .info) { try await engine.deleteAll() }
         hub.publishToAll(.cleared)
+    }
+
+    // MARK: - Migration
+
+    /// Upgrades every live stored value of `type` whose version is older than
+    /// ``LocalStorageVersioned/storageVersion``; returns how many were upgraded. Reads already
+    /// migrate lazily — call this to do it all up front, e.g. at launch after a release.
+    ///
+    /// Stops at the first record that fails to migrate or decode, throwing its error.
+    @discardableResult
+    public func migrateAll<T: Identifiable & Codable & Sendable>(_ type: T.Type) async throws -> Int {
+        let typeName = StorageKey.typeName(of: type)
+        let current = StorageKey.version(of: type)
+        // ponytail: loads every live record of the type at once; batch it if types get huge.
+        let records = try await perform("migrate all \(typeName)", level: .info) {
+            try await engine.records(
+                kind: .entity, typeName: typeName, now: now(), sort: .oldestFirst, limit: nil, offset: 0
+            )
+        }
+        var upgraded = 0
+        for record in records where record.schemaVersion != current {
+            _ = try await decode(type, from: record)
+            upgraded += 1
+        }
+        return upgraded
     }
 
     // MARK: - Observation
@@ -311,7 +353,7 @@ public final class LocalStorage: Sendable {
 
     private func value<T: Decodable>(_ type: T.Type, key: String) async throws -> T? {
         guard let record = try await liveRecord(forKey: key) else { return nil }
-        return try decode(type, from: record)
+        return try await decode(type, from: record)
     }
 
     func encode<T: Encodable>(_ value: T) throws -> Data {
@@ -323,12 +365,50 @@ public final class LocalStorage: Sendable {
         }
     }
 
-    private func decode<T: Decodable>(_ type: T.Type, from record: RecordSnapshot) throws -> T {
+    /// Decodes `record` as `T`, first upgrading an older payload through the registered
+    /// migrations and writing the upgraded payload back (timestamps untouched, no change events).
+    private func decode<T: Decodable>(_ type: T.Type, from record: RecordSnapshot) async throws -> T {
+        let current = StorageKey.version(of: type)
+        guard record.schemaVersion != current else {
+            return try decodePayload(type, record.payload, key: record.key)
+        }
+        let upgraded = try migrate(record, to: current)
+        let value = try decodePayload(type, upgraded, key: record.key)
+        try await perform("migrate \(record.key) v\(record.schemaVersion)→v\(current)", level: .info) {
+            try await engine.rewrite(key: record.key, payload: upgraded, schemaVersion: current)
+        }
+        return value
+    }
+
+    /// Runs the steps `record.schemaVersion → … → current` in memory.
+    private func migrate(_ record: RecordSnapshot, to current: Int) throws -> Data {
+        func fail(_ error: any Error) -> LocalStorageError {
+            log(.error, "migrate \(record.key) v\(record.schemaVersion)→v\(current) failed: \(Swift.type(of: error))")
+            return .migrationFailed(key: record.key, underlying: error)
+        }
+        guard record.schemaVersion < current else {
+            throw fail(StorageMigrationError.storedVersionNewer(stored: record.schemaVersion, current: current))
+        }
+        var payload = record.payload
+        for version in record.schemaVersion..<current {
+            guard let step = migrations[record.typeName]?[version] else {
+                throw fail(StorageMigrationError.missingStep(typeName: record.typeName, from: version))
+            }
+            do {
+                payload = try step.transform(payload, configuration.decoder, configuration.encoder)
+            } catch {
+                throw fail(error)
+            }
+        }
+        return payload
+    }
+
+    private func decodePayload<T: Decodable>(_ type: T.Type, _ payload: Data, key: String) throws -> T {
         do {
-            return try configuration.decoder.decode(type, from: record.payload)
+            return try configuration.decoder.decode(type, from: payload)
         } catch {
-            log(.error, "decode \(record.key) as \(T.self) failed: \(Swift.type(of: error))")
-            throw LocalStorageError.decodingFailed(key: record.key, underlying: error)
+            log(.error, "decode \(key) as \(T.self) failed: \(Swift.type(of: error))")
+            throw LocalStorageError.decodingFailed(key: key, underlying: error)
         }
     }
 
