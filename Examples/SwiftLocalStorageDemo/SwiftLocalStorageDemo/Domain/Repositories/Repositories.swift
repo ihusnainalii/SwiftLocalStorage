@@ -13,6 +13,8 @@ protocol ProductRepository: Sendable {
 
 protocol NoteRepository: Sendable {
     func all() async throws -> [Note]
+    /// The current notes, then the notes again after every change.
+    func observeAll() -> AsyncThrowingStream<[Note], any Error>
     func save(_ note: Note) async throws
     func delete(_ notes: [Note]) async throws
 }
@@ -29,4 +31,6 @@ protocol MaintenanceRepository: Sendable {
     /// Returns how many records were removed.
     func removeExpired() async throws -> Int
     func removeAll() async throws
+    /// Every change to products and notes as it happens.
+    func activity() -> AsyncStream<StorageActivity>
 }

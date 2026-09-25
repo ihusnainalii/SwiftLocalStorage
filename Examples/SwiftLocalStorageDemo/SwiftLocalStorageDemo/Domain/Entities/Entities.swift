@@ -76,6 +76,22 @@ struct LaunchInfo: Sendable, Equatable {
     var previousLaunch: Date?
 }
 
+/// One observed change, for the Inspector's live feed.
+struct StorageActivity: Sendable, Equatable, Identifiable {
+    enum Kind: String, Sendable { case inserted, updated, deleted, cleared, expired }
+
+    let id = UUID()
+    var date: Date
+    var entity: String
+    var kind: Kind
+    /// The affected item's name, when there is one.
+    var detail: String?
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        (lhs.entity, lhs.kind, lhs.detail) == (rhs.entity, rhs.kind, rhs.detail)
+    }
+}
+
 /// What is currently stored.
 struct StorageStats: Sendable, Equatable {
     var liveProducts: Int

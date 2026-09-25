@@ -41,7 +41,7 @@ struct ErrorTests {
     /// An engine whose every operation fails, standing in for a broken or full store.
     actor FailingEngine: StorageEngine {
         struct DiskFull: Error {}
-        func upsert(_ writes: [RecordWrite], now: Date) async throws { throw DiskFull() }
+        func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> { throw DiskFull() }
         func record(forKey key: String) async throws -> RecordSnapshot? { throw DiskFull() }
         func records(
             kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int
