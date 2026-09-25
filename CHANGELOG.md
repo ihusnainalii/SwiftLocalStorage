@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-25
 
 ### Added
 - Design spec for v0.4 observation (`docs/specs/2026-09-25-swiftlocalstorage-v0.4-observation-design.md`).
@@ -91,7 +92,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.1...v0.2.2
