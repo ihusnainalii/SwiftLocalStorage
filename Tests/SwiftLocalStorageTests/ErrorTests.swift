@@ -22,7 +22,7 @@ struct ErrorTests {
         do {
             _ = try await storage.fetch(User.self, id: id)
             Issue.record("expected decodingFailed")
-        } catch let LocalStorageError.decodingFailed(key, _) {
+        } catch LocalStorageError.decodingFailed(let key, _) {
             #expect(key == StorageKey.entity(User.self, id: id))
         }
     }
@@ -79,7 +79,7 @@ struct ErrorTests {
             do {
                 try await operation()
                 Issue.record("expected persistenceFailed")
-            } catch let LocalStorageError.persistenceFailed(underlying) {
+            } catch LocalStorageError.persistenceFailed(let underlying) {
                 #expect(underlying is FailingEngine.DiskFull)
             }
         }
