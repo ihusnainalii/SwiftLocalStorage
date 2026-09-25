@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Added
+- README: "API at a glance" reference tables, a compiled-and-run "Complete example" (versioned + indexed DTO, migration, cache refresh, live indexed SwiftUI list, launch maintenance), "Performance" cost table and "Upgrading" guide; refreshed architecture (schema V3, index slots, two kinds of versioning), core concepts, metadata `version`, configuration `migrations:`, testing clock injection, known limitations and FAQ.
+
 ## [0.6.0] - 2026-09-25
 
 ### Added

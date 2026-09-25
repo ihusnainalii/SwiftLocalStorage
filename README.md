@@ -3,11 +3,12 @@
 <p align="center">
   <strong>Type-safe, concurrency-safe local persistence and caching for Swift.</strong><br />
   Persist your existing <code>Codable</code> DTOs with SwiftData — no <code>@Model</code> entities to write.<br />
-  Zero external dependencies • Swift 6 strict concurrency • Actor-isolated SwiftData • Cache expiration
+  Zero dependencies • Swift 6 strict concurrency • Cache expiration • Queries &amp; indexes • Live observation • DTO migrations
 </p>
 
 <p align="center">
   <a href="https://github.com/ihusnainalii/SwiftLocalStorage/actions/workflows/ci.yml"><img src="https://github.com/ihusnainalii/SwiftLocalStorage/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/ihusnainalii/SwiftLocalStorage/releases"><img src="https://img.shields.io/github/v/release/ihusnainalii/SwiftLocalStorage" alt="Latest release" /></a>
   <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-6.0-orange.svg" alt="Swift 6" /></a>
   <a href="https://swift.org/package-manager"><img src="https://img.shields.io/badge/SPM-compatible-brightgreen.svg" alt="SPM" /></a>
   <a href="Package.swift"><img src="https://img.shields.io/badge/platforms-iOS%2017%20%7C%20macOS%2014%20%7C%20tvOS%2017%20%7C%20watchOS%2010%20%7C%20visionOS%201-lightgrey.svg" alt="Platforms" /></a>
@@ -29,6 +30,7 @@
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [API at a glance](#api-at-a-glance)
 - [Architecture](#architecture)
 - [Core concepts](#core-concepts)
 - [Entity storage](#entity-storage)
@@ -47,12 +49,15 @@
 - [Logging](#logging)
 - [Testing and mocking](#testing-and-mocking)
 - [Thread safety](#thread-safety)
+- [Performance](#performance)
 - [Using it with SwiftNetworkKit](#using-it-with-swiftnetworkkit)
+- [Complete example](#complete-example)
 - [Demo app](#demo-app)
 - [Best practices](#best-practices)
 - [Known limitations](#known-limitations)
 - [FAQ](#faq)
 - [Communication](#communication)
+- [Upgrading](#upgrading)
 - [Versioning](#versioning)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -102,7 +107,7 @@ natural fit for caching the DTOs that SwiftNetworkKit decodes.
 | **Indexed fields** | Declare up to three fields per type; `matching:` filters, `orderedBy:`, counts and pages on them run inside SwiftData |
 | **Observation** | Typed change feeds (`AsyncStream`), coalescing live queries for SwiftUI, and batched iteration of large types |
 | **Cache expiration** | `.seconds`, `.minutes`, `.hours`, `.days`, `.date`, `.never`; expired records read as absent and are purged lazily; `removeExpired()` |
-| **Metadata** | created/updated/expiry dates, payload size and expiry state per record |
+| **Metadata** | created/updated/expiry dates, payload size, stored DTO version and expiry state per record |
 | **Isolation** | Types sharing an ID never collide; entities and key-value entries live in separate namespaces |
 | **Concurrency** | Swift 6 strict concurrency; SwiftData access confined to a `@ModelActor`; safe to call from any task |
 | **Errors** | One `LocalStorageError` with a stable `Code`; no SwiftData error leaks out; missing data is `nil`, not an error |
@@ -180,6 +185,33 @@ try await storage.delete(Product.self, id: 42)
 
 ---
 
+## API at a glance
+
+Every call is `async`, and every call except the streaming ones `throws` a `LocalStorageError`.
+
+| Task | `LocalStorage` | `LocalRepository<T>` |
+|---|---|---|
+| Save (insert or replace) | `save(value, expiration:)`, `save([values], expiration:)` | `save(_:expiration:)` |
+| Read one | `fetch(T.self, id:)` → `T?` | `fetch(id:)` |
+| Read all | `fetch(T.self)`, `fetch(T.self, options:)` | `fetchAll()`, `fetchAll(options:)` |
+| Filter (closure, in memory) | `fetch(T.self, where:options:)` | `fetch(where:options:)` |
+| Filter / order (indexed, in store) | `fetch(T.self, matching:orderedBy:options:)` | `fetch(matching:orderedBy:options:)` |
+| Page | `page(T.self, page:pageSize:sort:)`, `page(T.self, matching:orderedBy:page:pageSize:)` | `page(_:pageSize:sort:)`, `page(matching:…)` |
+| Count / exists | `count(T.self)`, `count(T.self, matching:)`, `exists(T.self, id:)` | `count()`, `count(matching:)`, `exists(id:)` |
+| Delete | `delete(T.self, id:)`, `delete([values])`, `deleteAll(T.self)` | `delete(id:)`, `delete(_:)`, `deleteAll()` |
+| Metadata | `metadata(T.self, id:)` → `StorageMetadata?` | `metadata(id:)` |
+| Observe | `changes(of:)`, `updates(of:options:)`, `all(_:batchSize:)` | `changes()`, `updates(options:)`, `all(batchSize:)` |
+| Key-value | `set(_:forKey:expiration:)`, `get(_:forKey:)`, `remove(forKey:)` | — |
+| Maintenance | `removeExpired()`, `removeAll()`, `migrateAll(T.self)` | — |
+
+| Protocol your type can adopt | Purpose |
+|---|---|
+| `LocalStorageNaming` | Pin a stable storage name (`static var storageTypeName`) |
+| `LocalStorageVersioned` | Declare the DTO's stored version (`static var storageVersion`) for [migrations](#migrating-stored-dtos) |
+| `LocalStorageIndexed` | Declare up to three [indexed fields](#indexed-fields) (`static var storageIndexes`) |
+
+---
+
 ## Architecture
 
 ```text
@@ -190,20 +222,24 @@ try await storage.delete(Product.self, id: 42)
 │      LocalStorage       │   key building, expiry policy, error mapping, logging
 │  LocalRepository<T>     │
 └────────────┬────────────┘
-             │  records: key + bytes + dates   (internal StorageEngine protocol)
+             │  records: key + bytes + dates + index values   (internal StorageEngine protocol)
              ▼
 ┌─────────────────────────┐        ┌──────────────────────────┐
 │ SwiftDataEngine         │        │ InMemoryStorageEngine    │
 │ (@ModelActor)           │        │ (test double, SPI)       │
 └────────────┬────────────┘        └──────────────────────────┘
              ▼
-  ModelContainer ── StoredRecord (@Model, schema V2, migrates from V1)
+  ModelContainer ── StoredRecord (@Model, schema V3; V1 and V2 stores upgrade in place)
 ```
 
 - **One envelope table.** Every value is a `StoredRecord` row: a unique `key`, a `kind`, the type
-  name, the encoded `payload`, a `schemaVersion`, `createdAt` / `updatedAt` / `expiresAt`, and an
-  insertion `sequence` that keeps same-instant records in the order they were saved.
-  Adding a new DTO type never changes the SwiftData schema.
+  name, the encoded `payload`, the payload's DTO `schemaVersion`, `createdAt` / `updatedAt` /
+  `expiresAt`, an insertion `sequence` that keeps same-instant records in the order they were saved,
+  and three string plus three number **index slots** with the signature of the index declaration
+  that filled them. Adding a new DTO type never changes the SwiftData schema.
+- **Two kinds of versioning.** The *store* schema (V1 → V2 → V3) migrates through a SwiftData
+  `SchemaMigrationPlan` when the store opens. *Your DTOs* migrate record by record through
+  `StorageMigration` steps when they are read.
 - **Encoding happens outside the actor.** `LocalStorage` encodes and decodes; the engine only moves
   bytes. That keeps the actor's critical section short and the engine free of generics.
 - **Only value snapshots leave the actor.** Live `@Model` objects never cross an isolation boundary.
@@ -219,6 +255,8 @@ try await storage.delete(Product.self, id: 42)
 | **Record key** | `e\|<type name>\|<id>` for entities, `kv\|<key>` for key-value entries |
 | **Type name** | `String(reflecting: T.self)` (module-qualified) unless the type adopts `LocalStorageNaming` |
 | **Live record** | A record that has no expiry, or whose expiry is still in the future |
+| **DTO version** | The version a payload was written with: `T.storageVersion`, or 1 when `T` isn't `LocalStorageVersioned` |
+| **Index signature** | The `name:kind` list of a type's index declaration, stored per record to detect stale index values |
 
 ---
 
@@ -285,7 +323,9 @@ try await users.deleteAll()
 ```
 
 `LocalRepository` is a lightweight `Sendable` struct. Create it wherever you need it, or inject it
-into a feature so the feature only sees its own type.
+into a feature so the feature only sees its own type. It mirrors every entity call on
+`LocalStorage`, including queries, indexed queries and observation. See
+[API at a glance](#api-at-a-glance).
 
 ---
 
@@ -479,6 +519,7 @@ if let meta = try await storage.metadata(User.self, id: id) {
     meta.updatedAt   // last save
     meta.expiresAt   // nil = never
     meta.size        // encoded payload size in bytes
+    meta.version     // DTO version the payload was stored with
     meta.isExpired
 }
 ```
@@ -496,7 +537,8 @@ let storage = try LocalStorage(configuration: .init(
     encoder: JSONStorageEncoder(),
     decoder: JSONStorageDecoder(),
     logger: OSLogStorageLogger(subsystem: "com.example.myapp"),
-    logLevel: .info
+    logLevel: .info,
+    migrations: []                        // StorageMigration steps, see "Migrating stored DTOs"
 ))
 
 // Tests and SwiftUI previews: nothing touches the file system.
@@ -693,9 +735,14 @@ record), use the test double behind the `SwiftLocalStorageTesting` SPI:
 ```swift
 @_spi(SwiftLocalStorageTesting) import SwiftLocalStorage
 
+// SwiftData-backed, in memory, with a controllable clock: test expiry without waiting.
+let storage = try LocalStorage(configuration: .inMemory, now: { clock.now })
+
+// No SwiftData at all; seed raw or old-version records directly.
 let engine = InMemoryStorageEngine()
-let storage = LocalStorage(engine: engine, now: { fixedDate })   // injectable clock
+let double = LocalStorage(engine: engine, now: { fixedDate })
 await engine.insertRaw(Data("{ bad".utf8), typeName: "User", id: "1")
+await engine.insertRaw(oldPayload, typeName: "User", id: "2", version: 1)
 ```
 
 SPI types are for tests. They are not covered by the semantic-versioning guarantee.
@@ -710,11 +757,35 @@ SPI types are for tests. They are not covered by the semantic-versioning guarant
   race. The test suite runs 100 concurrent saves, reads and mixed operations, and passes under
   ThreadSanitizer.
 - The same behavioral contract suite runs against both the SwiftData engine and the in-memory test
-  double, so tests written against the double hold for production. Library line coverage is 96%, and CI
-  fails below 90%.
+  double, so tests written against the double hold for production. Library line coverage is about
+  95%, and CI fails below 90%.
 - Encoding and decoding run on the caller's task, outside the actor, so they don't queue behind
   other storage work.
 - Batch saves are atomic: the whole batch is stored, or none of it is.
+
+---
+
+## Performance
+
+What each call costs, so you can pick the right one for large types:
+
+| Call | Work done |
+|---|---|
+| `fetch(_:id:)`, `exists`, `metadata` | one indexed lookup by key, one decode |
+| `fetch(_:options:)`, `page(_:page:pageSize:)` | sort and slice in SQLite; decodes only the rows returned |
+| `fetch(_:matching:orderedBy:options:)`, `count(_:matching:)`, `page(_:matching:…)` | filter, sort and slice in SQLite on index slots; decodes only the rows returned |
+| `count(_:)` | a `COUNT` in SQLite; decodes nothing |
+| `fetch(_:where:options:)` | loads and decodes **every** live value of the type, then filters in memory |
+| `all(_:batchSize:)` | one `limit`/`offset` fetch per batch as the loop advances |
+| `save([values])` | encodes on the caller's task, then one transaction |
+| `updates(of:)` | one refetch per burst of writes, not one per write |
+| First indexed query of a type | re-indexes stale records once per declaration per `LocalStorage` instance |
+| First read of an old-version record | runs its migration steps once and writes the result back |
+| `migrateAll(_:)` | loads every live record of the type in one pass |
+
+Encoding and decoding run on the calling task, outside the storage actor, so a large decode
+doesn't block other storage calls. Logging is off by default, and log lines are built only when
+their level is enabled.
 
 ---
 
@@ -746,14 +817,146 @@ repository is a candidate for a future companion package; see the [roadmap](ROAD
 
 ---
 
+## Complete example
+
+One feature, using most of the package: a versioned, indexed DTO cached from the network, a
+migration for its previous shape, a live SwiftUI list, and maintenance at launch.
+
+```swift
+import SwiftLocalStorage
+import SwiftUI
+
+// MARK: Model
+
+struct Article: Codable, Identifiable, Sendable {
+    let id: Int
+    var title: String
+    var topic: String
+    var publishedAt: Date
+    var isRead: Bool            // added in version 2
+}
+
+extension Article: LocalStorageNaming, LocalStorageVersioned, LocalStorageIndexed {
+    static var storageTypeName: String { "Article" }
+    static var storageVersion: Int { 2 }
+    static var storageIndexes: [StorageIndex<Article>] {
+        [.string("topic") { $0.topic }, .number("publishedAt") { $0.publishedAt }, .number("isRead") { $0.isRead }]
+    }
+}
+
+/// How version 1 was stored, before `isRead` existed.
+private struct ArticleV1: Codable, Sendable {
+    let id: Int
+    var title: String
+    var topic: String
+    var publishedAt: Date
+}
+
+// MARK: Storage
+
+enum AppStorage {
+    static func open() throws -> LocalStorage {
+        try LocalStorage(configuration: .init(
+            name: "News",
+            logger: OSLogStorageLogger(subsystem: "com.example.news"),
+            logLevel: .error,
+            migrations: [
+                StorageMigration(Article.self, from: 1) { (old: ArticleV1) in
+                    Article(id: old.id, title: old.title, topic: old.topic, publishedAt: old.publishedAt, isRead: false)
+                },
+            ]
+        ))
+    }
+
+    /// Launch maintenance: upgrade old records up front and reclaim expired cache space.
+    static func maintain(_ storage: LocalStorage) async {
+        _ = try? await storage.migrateAll(Article.self)
+        _ = try? await storage.removeExpired()
+    }
+}
+
+// MARK: Repository
+
+struct ArticleRepository: Sendable {
+    let articles: LocalRepository<Article>
+    let fetchRemote: @Sendable () async throws -> [Article]      // e.g. a SwiftNetworkKit call
+
+    /// Serve the cache while it's fresh (expired records don't count); otherwise refresh it.
+    func refreshIfNeeded() async throws {
+        guard try await articles.count() == 0 else { return }
+        try await articles.save(try await fetchRemote(), expiration: .minutes(30))
+    }
+
+    /// Unread articles in a topic, newest first, filtered and sorted in the store.
+    func unread(topic: String) -> AsyncThrowingStream<[Article], any Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await _ in articles.updates() {           // re-run on every change
+                        continuation.yield(try await articles.fetch(
+                            matching: [.equals("topic", topic), .equals("isRead", false)],
+                            orderedBy: .descending("publishedAt")
+                        ))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    func markRead(_ article: Article) async throws {
+        var read = article
+        read.isRead = true
+        try await articles.save(read, expiration: .minutes(30))
+    }
+}
+
+// MARK: UI
+
+struct UnreadView: View {
+    let repository: ArticleRepository
+    let topic: String
+    @State private var articles: [Article] = []
+
+    var body: some View {
+        List(articles) { article in
+            Button(article.title) { Task { try? await repository.markRead(article) } }
+        }
+        .task {
+            try? await repository.refreshIfNeeded()
+            do {
+                for try await unread in repository.unread(topic: topic) { articles = unread }
+            } catch {
+                // LocalStorageError: show an error state
+            }
+        }
+    }
+}
+```
+
+> [!NOTE]
+> Keeping `isRead` inside a cached DTO is shown for brevity. For state the user owns, a separate
+> non-expiring type is usually better, so a cache expiry can't drop it.
+
+---
+
 ## Demo app
 
 [`Examples/SwiftLocalStorageDemo`](Examples/SwiftLocalStorageDemo) is a complete SwiftUI iOS app
-built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with paging, a
-category filter and price sort on indexed fields, and a live expiry countdown; **Notes**, a CRUD repository driven by a live query, whose `Note` is on version 2 with a migration;
-**Settings** (key-value); and an **Inspector** with a live change feed, `removeExpired()` and the
-storage log. The Domain layer never imports the package, and its
-tests use an in-memory store with an injected clock.
+built with Clean Architecture + MVVM:
+
+| Tab | Shows |
+|---|---|
+| **Catalog** | cache-first loading with a live expiry countdown, paging, and a category filter and price sort on indexed fields |
+| **Notes** | a CRUD repository rendered from a live query; `Note` is on version 2 with a migration |
+| **Settings** | key-value storage for preferences and launch bookkeeping |
+| **Inspector** | a live change feed, record counts, `removeExpired()`, delete-all and the storage log |
+
+The Domain layer never imports the package, and the demo's tests run its real repositories and
+view models on an in-memory store with an injected clock.
 
 ```bash
 open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
@@ -781,6 +984,11 @@ open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
   queries support AND only, with up to three indexes per type and no string prefix search.
 - **Change events are per instance.** Only writes made through the same `LocalStorage` instance are
   observed. Share one instance per store.
+- **Key-value entries aren't observable**, and `updates(of:)` re-runs a plain `fetch(_:options:)`.
+  For a live indexed query, re-run your indexed fetch on each `changes(of:)` event (see the
+  [complete example](#complete-example)).
+- **Migrations go forward only.** An older app build reading a newer record gets `migrationFailed`
+  with `storedVersionNewer`.
 - **Apple platforms only**, because SwiftData is Apple-only.
 - **No encryption at rest** beyond the platform's data protection.
 
@@ -806,6 +1014,12 @@ wrong.
 Not yet. The engine protocol is internal while its shape settles. It will be considered for public
 API before 1.0.
 
+**What happens to data already on devices when I update the package?**
+It's kept. The store schema upgrades itself when the store opens: stores from 0.1–0.2.2 (V1) and
+0.2.3–0.5 (V2) move to the current V3 in place. Records written before indexes existed are
+re-indexed on the first indexed query. Your *DTO* changes are yours to migrate, see
+[Migrating stored DTOs](#migrating-stored-dtos).
+
 **Does it work with SwiftUI?**
 Yes. `updates(of:)` is a live query built for `.task { for try await ... }`, and `changes(of:)`
 gives typed events for view models. See [Observation and SwiftUI](#observation-and-swiftui).
@@ -821,6 +1035,20 @@ gives typed events for view models. See [Observation and SwiftUI](#observation-a
 | Request a feature | Start a Discussion first, then open an issue if there is agreement |
 | Report a security vulnerability | Do **not** open a public issue. Follow [SECURITY.md](SECURITY.md) |
 | Contribute code | Read [CONTRIBUTING.md](CONTRIBUTING.md) first |
+
+---
+
+## Upgrading
+
+Stored data carries over across every release. Only these releases need code changes:
+
+| From → to | What to change |
+|---|---|
+| any → 0.6 | Nothing required. To use indexed fields, adopt `LocalStorageIndexed`; existing records are indexed automatically. |
+| ≤ 0.4 → 0.5 | `LocalStorageError` gained `migrationFailed(key:underlying:)` (and `Code.migrationFailed`). Add a case to exhaustive `switch` statements. |
+| ≤ 0.2 → 0.3+ | Nothing required. New parameters all have defaults. |
+
+See [CHANGELOG.md](CHANGELOG.md) for every change by version.
 
 ---
 
