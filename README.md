@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="favicon.svg" alt="SwiftLocalStorage logo" width="128" height="128" />
+</p>
+
 <h1 align="center">SwiftLocalStorage</h1>
 
 <p align="center">
