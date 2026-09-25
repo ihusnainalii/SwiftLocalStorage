@@ -4,8 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| 0.4.x | ✅ |
-| < 0.4 | ❌ |
+| 0.5.x | ✅ |
+| < 0.5 | ❌ |
 
 Before 1.0, only the latest minor release receives fixes.
 
