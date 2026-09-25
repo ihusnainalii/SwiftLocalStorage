@@ -225,6 +225,16 @@ struct DTOMigrationTests {
         }
     }
 
+    @Test("migrateAll walks more records than one batch", arguments: Engine.allCases)
+    func migrateAllBatches(engine: Engine) async throws {
+        let storage = try storage(engine)
+        try await storage.save((1...1_200).map { PersonV1(id: $0, name: "P\($0)") })
+
+        #expect(try await storage.migrateAll(PersonV3.self) == 1_200)
+        #expect(try await storage.migrateAll(PersonV3.self) == 0)
+        #expect(try await storage.metadata(PersonV3.self, id: 1_200)?.version == 3)
+    }
+
     @Test("migrateAll stops at the first failure")
     func migrateAllFailure() async throws {
         let storage = try storage(.inMemory, migrations: [])

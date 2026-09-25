@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 - The SwiftData engine composes indexed queries from only the active conditions (built with `PredicateExpressions`) instead of one `#Predicate` with switched-off terms.
+- `fetch(_:where:options:)` and `migrateAll(_:)` walk the type 500 records at a time instead of decoding every record at once; `where:` stops as soon as `offset + limit` matches are found. Results are unchanged. With the update-ordered sorts, a value updated during the walk can be seen twice or missed. Observation APIs moved to `LocalStorage+Observation.swift` (no API change).
 
 ## [1.0.0] - 2026-09-25
 
