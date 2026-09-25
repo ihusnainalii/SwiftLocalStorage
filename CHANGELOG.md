@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `fetch(_:where:options:)` to filter on any DTO field with a Swift closure (in memory, after decoding), then sort and slice.
 - Repository equivalents: `fetchAll(options:)`, `fetch(where:options:)`, `page(_:pageSize:sort:)`.
 - Query tests on both engines (every sort, ties, limit/offset edges, expired exclusion, page math, filters, repository) and query logging tests.
+- README "Queries: sorting, paging, filtering" section; roadmap, security policy and demo README updated for 0.3.
 
 ### Fixed
 - SwiftData engine answers `limit: 0` with no rows (SwiftData treats `fetchLimit == 0` as unlimited).

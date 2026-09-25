@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.2.3 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.3.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -34,6 +34,7 @@
 - [Entity storage](#entity-storage)
 - [Key-value storage](#key-value-storage)
 - [Repositories](#repositories)
+- [Queries: sorting, paging, filtering](#queries-sorting-paging-filtering)
 - [Cache expiration](#cache-expiration)
 - [Metadata](#metadata)
 - [Configuration](#configuration)
@@ -95,6 +96,7 @@ natural fit for caching the DTOs that SwiftNetworkKit decodes.
 | **Entity storage** | `save`, batch `save` (single transaction), `fetch` by ID, fetch all, `count`, `exists`, `delete`, bulk `delete`, `deleteAll` for any `Identifiable & Codable` type |
 | **Key-value storage** | `set` / `get` / `remove` for any `Codable` value under a string key |
 | **Repositories** | `storage.repository(User.self)` — a typed handle without the `T.self` noise |
+| **Queries** | Four sort orders, `limit` / `offset` pushed down to SwiftData, 1-based pages with totals, and closure filters on any DTO field |
 | **Cache expiration** | `.seconds`, `.minutes`, `.hours`, `.days`, `.date`, `.never`; expired records read as absent and are purged lazily; `removeExpired()` |
 | **Metadata** | created/updated/expiry dates, payload size and expiry state per record |
 | **Isolation** | Types sharing an ID never collide; entities and key-value entries live in separate namespaces |
@@ -130,7 +132,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.2.0"),
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.3.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),
@@ -141,7 +143,7 @@ targets: [
 
 **File ▸ Add Package Dependencies…**, paste
 `https://github.com/ihusnainalii/SwiftLocalStorage.git`, choose **Up to Next Minor Version** from
-`0.2.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
+`0.3.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
 
 ---
 
@@ -280,6 +282,47 @@ try await users.deleteAll()
 
 `LocalRepository` is a lightweight `Sendable` struct. Create it wherever you need it, or inject it
 into a feature so the feature only sees its own type.
+
+---
+
+## Queries: sorting, paging, filtering
+
+```swift
+// Sort and slice inside the store: only the requested rows are loaded and decoded.
+let latest = try await storage.fetch(User.self, options: FetchOptions(sort: .newestFirst, limit: 20))
+let next   = try await storage.fetch(User.self, options: FetchOptions(limit: 20, offset: 20))
+
+// Pages are 1-based and carry totals for paging UI.
+let page = try await storage.page(User.self, page: 1, pageSize: 50)
+page.items        // [User]
+page.totalCount   // live users across all pages
+page.totalPages
+page.hasNextPage
+
+// Filter on any DTO field with a Swift closure, then sort and slice.
+let admins = try await storage.fetch(
+    User.self, where: { $0.role == .admin },
+    options: FetchOptions(sort: .recentlyUpdated, limit: 10)
+)
+```
+
+| `StorageSort` | Order |
+|---|---|
+| `.oldestFirst` (default) | first saved first |
+| `.newestFirst` | last saved first |
+| `.recentlyUpdated` | most recently saved or updated first |
+| `.leastRecentlyUpdated` | least recently updated first |
+
+Ties, such as records saved in the same batch, are broken by insertion order, so every order is
+stable. Expired records never appear in results, counts or page totals.
+
+> [!NOTE]
+> DTO fields live inside encoded payloads, so `fetch(_:where:)` loads and decodes every live value
+> of the type before filtering. Sorting, `limit`, `offset` and `page` run inside the store and load
+> only the requested rows.
+
+Repositories have the same calls: `fetchAll(options:)`, `fetch(where:options:)` and
+`page(_:pageSize:sort:)`.
 
 ---
 
@@ -578,10 +621,9 @@ open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
 
 ## Known limitations
 
-- **No field queries yet.** You can fetch by ID or fetch all of a type, but you can't filter or sort
-  on DTO fields. Filtering, sorting and pagination are planned for 0.3.
-- **Fetch all loads every value of a type into memory.** For very large collections, split them
-  into pages under different types or keys until pagination lands.
+- **Field filters run in memory.** `fetch(_:where:)` decodes every live value of the type before
+  filtering. Sorting and paging by metadata (`createdAt`, `updatedAt`) run in the store. Sorting by
+  a DTO field means sorting the fetched array yourself.
 - **Apple platforms only**, because SwiftData is Apple-only.
 - **No encryption at rest** beyond the platform's data protection.
 
@@ -639,8 +681,8 @@ Every release is tagged `vX.Y.Z`, has a GitHub Release, and has a section in
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Next up: queries and pagination (0.3), observation (0.4), DTO
-migration hooks (0.5), then an API freeze for 1.0.
+See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3. Next up: observation and `AsyncStream`
+change feeds (0.4), DTO migration hooks (0.5), then an API freeze for 1.0.
 
 ---
 
