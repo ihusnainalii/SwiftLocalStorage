@@ -20,7 +20,9 @@ struct Harness {
 
     init() throws {
         let clock = self.clock
-        storage = try LocalStorage(configuration: .inMemory, now: { clock.now })
+        storage = try LocalStorage(
+            configuration: .init(isStoredInMemoryOnly: true, migrations: StorageMigrations.all), now: { clock.now }
+        )
     }
 
     var products: CachedProductRepository { CachedProductRepository(storage: storage, api: api) }
@@ -195,6 +197,30 @@ struct NotesTests {
         try await harness.notes.save(Note(title: "From another screen"))
 
         try await eventually { viewModel.notes.map(\.title) == ["From another screen"] }
+    }
+
+    @Test("notes saved by earlier builds (no priority) migrate to v2 on read")
+    func migratesLegacyNotes() async throws {
+        /// Exactly what demo builds before 0.5 stored under "Note".
+        struct LegacyNote: Codable, Identifiable, Sendable, LocalStorageNaming {
+            static var storageTypeName: String { "Note" }
+            let id: UUID
+            var title: String
+            var body: String
+            var isPinned: Bool
+            var createdAt: Date
+        }
+        let harness = try Harness()
+        let legacy = LegacyNote(id: UUID(), title: "From 0.4", body: "", isPinned: true, createdAt: .distantPast)
+        try await harness.storage.save(legacy)
+        #expect(try await harness.storage.metadata(Note.self, id: legacy.id)?.version == 1)
+
+        let notes = try await harness.notes.all()
+
+        #expect(notes.map(\.title) == ["From 0.4"])
+        #expect(notes.first?.priority == .normal)
+        #expect(notes.first?.isPinned == true)
+        #expect(try await harness.storage.metadata(Note.self, id: legacy.id)?.version == 2)
     }
 
     @Test("an empty title is rejected and nothing is saved")

@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 - **Breaking (pre-1.0):** `LocalStorageError` gains `migrationFailed(key:underlying:)` (and `Code.migrationFailed`); exhaustive switches need the new case.
 - Internal: records now store their DTO version (the existing `schemaVersion` column) on insert and update; new engine `rewrite(key:payload:schemaVersion:)` for migration write-backs.
+- Demo app: `Note` gains a required `priority` (stored version 2) with a v1 → v2 `StorageMigration`, so notes saved by earlier demo builds upgrade on first read; priority shows as a badge and is editable.
 
 ## [0.4.0] - 2026-09-25
 

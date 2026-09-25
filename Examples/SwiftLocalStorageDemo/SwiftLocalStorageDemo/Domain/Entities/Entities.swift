@@ -12,18 +12,29 @@ struct Product: Codable, Identifiable, Sendable, Hashable {
 }
 
 struct Note: Codable, Identifiable, Sendable, Hashable {
+    enum Priority: String, Codable, Sendable, CaseIterable, Identifiable {
+        case low, normal, high
+        var id: Self { self }
+    }
+
     let id: UUID
     var title: String
     var body: String
     var isPinned: Bool
     var createdAt: Date
+    /// Added in version 2 of the stored shape; older notes are migrated to `.normal`.
+    var priority: Priority
 
-    init(id: UUID = UUID(), title: String = "", body: String = "", isPinned: Bool = false, createdAt: Date = .now) {
+    init(
+        id: UUID = UUID(), title: String = "", body: String = "", isPinned: Bool = false,
+        createdAt: Date = .now, priority: Priority = .normal
+    ) {
         self.id = id
         self.title = title
         self.body = body
         self.isPinned = isPinned
         self.createdAt = createdAt
+        self.priority = priority
     }
 }
 
