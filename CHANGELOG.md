@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-26
 
 ### Added
 - Design spec for 1.1, the query track (`docs/specs/2026-09-25-swiftlocalstorage-v1.1-queries-design.md`).
@@ -156,7 +157,8 @@ The API is now stable: every 1.x release stays source-compatible with this one.
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...v0.5.0
