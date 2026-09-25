@@ -9,7 +9,9 @@ struct RepositoryTests {
     func forwards() async throws {
         let storage = try makeStorage()
         let users = storage.repository(User.self)
-        let a = User.make("A"), b = User.make("B"), c = User.make("C")
+        let a = User.make("A")
+        let b = User.make("B")
+        let c = User.make("C")
 
         try await users.save(a)
         try await users.save([b, c])

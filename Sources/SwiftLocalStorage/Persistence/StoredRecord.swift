@@ -150,12 +150,18 @@ typealias StoredRecord = CurrentStorageSchema.StoredRecord
 
 /// The migration plan every container is opened with.
 enum StorageMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [StorageSchemaV1.self, StorageSchemaV2.self, StorageSchemaV3.self] }
+    static var schemas: [any VersionedSchema.Type] {
+        [StorageSchemaV1.self, StorageSchemaV2.self, StorageSchemaV3.self]
+    }
     static var stages: [MigrationStage] { [v1ToV2, v2ToV3] }
 
     /// Adds the nullable index columns; existing records are re-indexed lazily on first query.
-    static let v2ToV3 = MigrationStage.lightweight(fromVersion: StorageSchemaV2.self, toVersion: StorageSchemaV3.self)
+    static var v2ToV3: MigrationStage {
+        MigrationStage.lightweight(fromVersion: StorageSchemaV2.self, toVersion: StorageSchemaV3.self)
+    }
 
     /// Adds `sequence` with its default value; no data transformation needed.
-    static let v1ToV2 = MigrationStage.lightweight(fromVersion: StorageSchemaV1.self, toVersion: StorageSchemaV2.self)
+    static var v1ToV2: MigrationStage {
+        MigrationStage.lightweight(fromVersion: StorageSchemaV1.self, toVersion: StorageSchemaV2.self)
+    }
 }

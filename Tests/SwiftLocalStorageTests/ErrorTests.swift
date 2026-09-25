@@ -22,7 +22,7 @@ struct ErrorTests {
         do {
             _ = try await storage.fetch(User.self, id: id)
             Issue.record("expected decodingFailed")
-        } catch let LocalStorageError.decodingFailed(key, _) {
+        } catch LocalStorageError.decodingFailed(let key, _) {
             #expect(key == StorageKey.entity(User.self, id: id))
         }
     }
@@ -43,13 +43,18 @@ struct ErrorTests {
         struct DiskFull: Error {}
         func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> { throw DiskFull() }
         func record(forKey key: String) async throws -> RecordSnapshot? { throw DiskFull() }
-        func rewrite(key: String, payload: Data, schemaVersion: Int, index: IndexValues?) async throws { throw DiskFull() }
+        func rewrite(key: String, payload: Data, schemaVersion: Int, index: IndexValues?) async throws {
+            throw DiskFull()
+        }
         func staleIndexKeys(typeName: String, signature: String) async throws -> [String] { throw DiskFull() }
         func setIndex(key: String, values: IndexValues) async throws { throw DiskFull() }
         func records(
-            kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int, index: IndexQuery?
+            kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int,
+            index: IndexQuery?
         ) async throws -> [RecordSnapshot] { throw DiskFull() }
-        func count(kind: RecordKind, typeName: String, now: Date, index: IndexQuery?) async throws -> Int { throw DiskFull() }
+        func count(kind: RecordKind, typeName: String, now: Date, index: IndexQuery?) async throws -> Int {
+            throw DiskFull()
+        }
         func delete(keys: [String]) async throws { throw DiskFull() }
         func deleteAll(kind: RecordKind, typeName: String) async throws { throw DiskFull() }
         func deleteExpired(now: Date) async throws -> Int { throw DiskFull() }
@@ -74,7 +79,7 @@ struct ErrorTests {
             do {
                 try await operation()
                 Issue.record("expected persistenceFailed")
-            } catch let LocalStorageError.persistenceFailed(underlying) {
+            } catch LocalStorageError.persistenceFailed(let underlying) {
                 #expect(underlying is FailingEngine.DiskFull)
             }
         }
@@ -94,14 +99,16 @@ struct ErrorTests {
         #expect(try await storage.count(User.self) == 0)
     }
 
-    @Test("every error case maps to its code", arguments: [
-        (LocalStorageError.encodingFailed(underlying: CancellationError()), LocalStorageError.Code.encodingFailed),
-        (.decodingFailed(key: "k", underlying: CancellationError()), .decodingFailed),
-        (.migrationFailed(key: "k", underlying: CancellationError()), .migrationFailed),
-        (.persistenceFailed(underlying: CancellationError()), .persistenceFailed),
-        (.containerInitializationFailed(underlying: CancellationError()), .containerInitializationFailed),
-        (.cancelled, .cancelled),
-    ])
+    @Test(
+        "every error case maps to its code",
+        arguments: [
+            (LocalStorageError.encodingFailed(underlying: CancellationError()), LocalStorageError.Code.encodingFailed),
+            (.decodingFailed(key: "k", underlying: CancellationError()), .decodingFailed),
+            (.migrationFailed(key: "k", underlying: CancellationError()), .migrationFailed),
+            (.persistenceFailed(underlying: CancellationError()), .persistenceFailed),
+            (.containerInitializationFailed(underlying: CancellationError()), .containerInitializationFailed),
+            (.cancelled, .cancelled),
+        ])
     func codes(error: LocalStorageError, code: LocalStorageError.Code) {
         #expect(error.code == code)
     }

@@ -60,8 +60,8 @@ struct LoggingTests {
         let storage = storage(level: .info, logger: logger)
         let user = User.make()
 
-        try await storage.save(user)                            // info
-        _ = try await storage.fetch(User.self, id: user.id)     // debug: filtered
+        try await storage.save(user)  // info
+        _ = try await storage.fetch(User.self, id: user.id)  // debug: filtered
 
         #expect(logger.lines.map(\.1) == [.info])
     }

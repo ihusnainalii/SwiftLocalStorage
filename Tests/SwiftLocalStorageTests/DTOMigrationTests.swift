@@ -62,7 +62,7 @@ struct DTOMigrationTests {
     private func migrationError(_ body: () async throws -> Void) async -> (key: String, underlying: any Error)? {
         do {
             try await body()
-        } catch let LocalStorageError.migrationFailed(key, underlying) {
+        } catch LocalStorageError.migrationFailed(let key, let underlying) {
             return (key, underlying)
         } catch {
             Issue.record("expected migrationFailed, got \(error)")
@@ -97,10 +97,13 @@ struct DTOMigrationTests {
 
         let after = try #require(try await storage.metadata(PersonV3.self, id: 1))
         #expect(after.version == 3)
-        #expect((after.createdAt, after.updatedAt, after.expiresAt) == (before.createdAt, before.updatedAt, before.expiresAt))
+        #expect(
+            (after.createdAt, after.updatedAt, after.expiresAt) == (
+                before.createdAt, before.updatedAt, before.expiresAt
+            ))
 
         _ = try await storage.fetch(PersonV3.self, id: 1)
-        #expect(calls.value == 2)                                         // written back: no re-run
+        #expect(calls.value == 2)  // written back: no re-run
     }
 
     @Test("list, page and filter reads migrate too", arguments: Engine.allCases)
@@ -154,9 +157,11 @@ struct DTOMigrationTests {
     @Test("a throwing step surfaces its error; the record is untouched", arguments: Engine.allCases)
     func throwingStep(engine: Engine) async throws {
         struct Refused: Error {}
-        let storage = try storage(engine, migrations: [
-            StorageMigration(PersonV2.self, from: 1) { (_: PersonV1) -> PersonV2 in throw Refused() },
-        ])
+        let storage = try storage(
+            engine,
+            migrations: [
+                StorageMigration(PersonV2.self, from: 1) { (_: PersonV1) -> PersonV2 in throw Refused() }
+            ])
         try await storage.save(PersonV1(id: 1, name: "Ada"))
 
         let failure = await migrationError { _ = try await storage.fetch(PersonV2.self, id: 1) }
@@ -167,9 +172,11 @@ struct DTOMigrationTests {
 
     @Test("a step producing the wrong shape fails to decode; the record is untouched", arguments: Engine.allCases)
     func wrongShape(engine: Engine) async throws {
-        let storage = try storage(engine, migrations: [
-            StorageMigration(PersonV2.self, from: 1) { _ in Data("{}".utf8) },
-        ])
+        let storage = try storage(
+            engine,
+            migrations: [
+                StorageMigration(PersonV2.self, from: 1) { _ in Data("{}".utf8) }
+            ])
         try await storage.save(PersonV1(id: 1, name: "Ada"))
 
         await #expect {
@@ -190,12 +197,14 @@ struct DTOMigrationTests {
             var theme: String
         }
         let calls = Counter()
-        let storage = try storage(engine, migrations: [
-            StorageMigration(PrefsV2.self, from: 1) { (old: PrefsV1) in
-                calls.increment()
-                return PrefsV2(theme: old.dark ? "dark" : "light")
-            },
-        ])
+        let storage = try storage(
+            engine,
+            migrations: [
+                StorageMigration(PrefsV2.self, from: 1) { (old: PrefsV1) in
+                    calls.increment()
+                    return PrefsV2(theme: old.dark ? "dark" : "light")
+                }
+            ])
         try await storage.set(PrefsV1(dark: true), forKey: "prefs")
 
         #expect(try await storage.get(PrefsV2.self, forKey: "prefs") == PrefsV2(theme: "dark"))
@@ -231,7 +240,7 @@ struct DTOMigrationTests {
         let engine = InMemoryStorageEngine()
         let storage = LocalStorage(configuration: .init(migrations: Self.steps()), engine: engine)
         let legacy = try JSONEncoder().encode(PersonV1(id: 7, name: "Legacy"))
-        await engine.insertRaw(legacy, typeName: "Person", id: "7")          // no version given
+        await engine.insertRaw(legacy, typeName: "Person", id: "7")  // no version given
 
         #expect(try await storage.fetch(PersonV3.self, id: 7)?.fullName == "Legacy")
     }

@@ -39,7 +39,7 @@ struct QueryTests {
     func ties(engine: Engine) async throws {
         let storage = try engine.storage()
         let users = (0..<20).map { User.make("U\($0)") }
-        try await storage.save(users)                           // one createdAt for all
+        try await storage.save(users)  // one createdAt for all
 
         #expect(try await names(storage, .init(sort: .oldestFirst)) == users.map(\.name))
         #expect(try await names(storage, .init(sort: .newestFirst)) == users.reversed().map(\.name))

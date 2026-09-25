@@ -136,7 +136,8 @@ public final class LocalStorage: Sendable {
     ) async throws -> StoragePage<T> {
         precondition(page >= 1, "page is 1-based")
         precondition(pageSize >= 1, "pageSize must be at least 1")
-        let items = try await fetch(type, options: FetchOptions(sort: sort, limit: pageSize, offset: (page - 1) * pageSize))
+        let items = try await fetch(
+            type, options: FetchOptions(sort: sort, limit: pageSize, offset: (page - 1) * pageSize))
         let total = try await count(type)
         return StoragePage(items: items, page: page, pageSize: pageSize, totalCount: total)
     }
@@ -185,7 +186,8 @@ public final class LocalStorage: Sendable {
         _ type: T.Type, id: T.ID
     ) async throws -> StorageMetadata? {
         let key = StorageKey.entity(type, id: id)
-        guard let record = try await perform("metadata \(key)", level: .debug, { try await engine.record(forKey: key) }) else { return nil }
+        guard let record = try await perform("metadata \(key)", level: .debug, { try await engine.record(forKey: key) })
+        else { return nil }
         return StorageMetadata(
             createdAt: record.createdAt, updatedAt: record.updatedAt, expiresAt: record.expiresAt,
             size: record.payload.count, isExpired: record.isExpired(at: now()), version: record.schemaVersion
@@ -318,7 +320,8 @@ public final class LocalStorage: Sendable {
             try await engine.staleIndexKeys(typeName: typeName, signature: layout.signature)
         }
         for key in stale {
-            guard let record = try await perform("read \(key)", level: .debug, { try await engine.record(forKey: key) }) else {
+            guard let record = try await perform("read \(key)", level: .debug, { try await engine.record(forKey: key) })
+            else {
                 continue
             }
             let value = try await decode(type, from: record)

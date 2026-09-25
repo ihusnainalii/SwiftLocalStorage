@@ -20,7 +20,9 @@ import Foundation
         _ payload: Data, typeName: String, id: String, version: Int = 1, at now: Date = Date()
     ) {
         let key = StorageKey.entity(typeName: typeName, id: id)
-        store(RecordWrite(key: key, kind: .entity, typeName: typeName, payload: payload, schemaVersion: version), now: now)
+        store(
+            RecordWrite(key: key, kind: .entity, typeName: typeName, payload: payload, schemaVersion: version), now: now
+        )
     }
 
     func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> {
@@ -93,10 +95,11 @@ import Foundation
             case (nil, nil): nil
             case (nil, _): order.ascending
             case (_, nil): !order.ascending
-            case let (a?, b?): a == b ? nil : (a < b) == order.ascending
+            case (let a?, let b?): a == b ? nil : (a < b) == order.ascending
             }
         }
-        let decided = order.isString
+        let decided =
+            order.isString
             ? compare(lhs?.strings[order.slot], rhs?.strings[order.slot])
             : compare(lhs?.numbers[order.slot], rhs?.numbers[order.slot])
         return decided ?? (lhsOrder < rhsOrder)

@@ -8,7 +8,10 @@ struct EncodingTests {
     enum Status: String, Codable, Sendable { case active, banned }
 
     struct Rich: Codable, Identifiable, Sendable, Equatable {
-        struct Address: Codable, Sendable, Equatable { var city: String; var zip: String? }
+        struct Address: Codable, Sendable, Equatable {
+            var city: String
+            var zip: String?
+        }
         let id: String
         var status: Status
         var tags: [String]
@@ -24,7 +27,10 @@ struct EncodingTests {
         var id: String { "\(x),\(y)" }
         var x: Int, y: Int
 
-        init(x: Int, y: Int) { self.x = x; self.y = y }
+        init(x: Int, y: Int) {
+            self.x = x
+            self.y = y
+        }
         init(from decoder: any Decoder) throws {
             let parts = try decoder.singleValueContainer().decode(String.self).split(separator: ",")
             x = Int(parts[0])!
@@ -67,14 +73,14 @@ struct EncodingTests {
         static var storageTypeName: String { "User" }
         let id: Int
         var name: String
-        var avatar: URL?          // new optional field: compatible
+        var avatar: URL?  // new optional field: compatible
     }
 
     struct UserV3: Codable, Identifiable, Sendable, LocalStorageNaming {
         static var storageTypeName: String { "User" }
         let id: Int
         var name: String
-        var age: Int              // new required field: incompatible
+        var age: Int  // new required field: incompatible
     }
 
     @Test("adding an optional field decodes old records")

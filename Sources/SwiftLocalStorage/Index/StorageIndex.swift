@@ -80,7 +80,9 @@ public struct StorageFilter: Sendable, Hashable {
     }
 
     public static func between<V: StorageIndexNumber & Comparable>(_ name: String, _ range: ClosedRange<V>) -> Self {
-        Self(name: name, condition: .numberRange(min: range.lowerBound.storageIndexValue, max: range.upperBound.storageIndexValue))
+        Self(
+            name: name,
+            condition: .numberRange(min: range.lowerBound.storageIndexValue, max: range.upperBound.storageIndexValue))
     }
 }
 
@@ -135,7 +137,8 @@ struct IndexLayout<Root> {
     let indexes: [StorageIndex<Root>]
 
     init(_ indexes: [StorageIndex<Root>]) {
-        precondition(indexes.count <= IndexValues.slots, "LocalStorageIndexed supports at most \(IndexValues.slots) indexes")
+        precondition(
+            indexes.count <= IndexValues.slots, "LocalStorageIndexed supports at most \(IndexValues.slots) indexes")
         precondition(Set(indexes.map(\.name)).count == indexes.count, "LocalStorageIndexed index names must be unique")
         self.indexes = indexes
     }
@@ -162,7 +165,8 @@ struct IndexLayout<Root> {
             switch filter.condition {
             case .stringEquals(let value):
                 precondition(kind == .string, "\"\(filter.name)\" is a number index; filter it with a number")
-                precondition(query.strings[slot].map { $0 == value } ?? true, "Contradictory filters on \"\(filter.name)\"")
+                precondition(
+                    query.strings[slot].map { $0 == value } ?? true, "Contradictory filters on \"\(filter.name)\"")
                 query.strings[slot] = value
             case .numberRange(let min, let max):
                 precondition(kind == .number, "\"\(filter.name)\" is a string index; filter it with a string")
@@ -172,10 +176,11 @@ struct IndexLayout<Root> {
             }
         }
         if let order {
-            let (name, ascending) = switch order {
-            case .ascending(let name): (name, true)
-            case .descending(let name): (name, false)
-            }
+            let (name, ascending) =
+                switch order {
+                case .ascending(let name): (name, true)
+                case .descending(let name): (name, false)
+                }
             let (slot, kind) = resolve(name)
             query.order = IndexQuery.Order(slot: slot, isString: kind == .string, ascending: ascending)
         }

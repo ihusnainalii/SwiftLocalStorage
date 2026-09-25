@@ -27,7 +27,8 @@ struct MigrationTests {
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(), withIntermediateDirectories: true
         )
-        let source = try #require(Bundle.module.url(forResource: fixture, withExtension: "store", subdirectory: "Fixtures"))
+        let source = try #require(
+            Bundle.module.url(forResource: fixture, withExtension: "store", subdirectory: "Fixtures"))
         try FileManager.default.copyItem(at: source, to: destination)
         return (try LocalStorage(configuration: .init(name: name)), destination)
     }

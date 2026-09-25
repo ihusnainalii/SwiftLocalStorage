@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 - README: "API at a glance" reference tables, a compiled-and-run "Complete example" (versioned + indexed DTO, migration, cache refresh, live indexed SwiftUI list, launch maintenance), "Performance" cost table and "Upgrading" guide; refreshed architecture (schema V3, index slots, two kinds of versioning), core concepts, metadata `version`, configuration `migrations:`, testing clock injection, known limitations and FAQ.
 
+### Fixed
+- CI: the package builds with Xcode 16.4 / Swift 6.1 again (SwiftData `MigrationStage` is not `Sendable`, so the schema migration stages are computed instead of stored statics); sources and tests pass SwiftLint and swift-format (6.1 and later) in strict mode.
+
 ## [0.6.0] - 2026-09-25
 
 ### Added
