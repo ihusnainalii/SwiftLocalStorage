@@ -55,7 +55,9 @@ public final class LocalStorage: Sendable {
 
     /// Inserts `value`, or replaces the stored value with the same ID (keeping its `createdAt`).
     ///
-    /// - Parameter expiration: after this, reads treat the value as absent.
+    /// - Parameters:
+    ///   - value: the value to store, keyed by its type and `id`.
+    ///   - expiration: after this, reads treat the value as absent.
     public func save<T: Identifiable & Codable & Sendable>(
         _ value: T, expiration: CacheExpiration = .never
     ) async throws {
