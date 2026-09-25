@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.4.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.5.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -107,7 +107,7 @@ natural fit for caching the DTOs that SwiftNetworkKit decodes.
 | **Pluggable coding** | `StorageEncoder` / `StorageDecoder` protocols with JSON defaults |
 | **Logging** | `StorageLogger` sink with level filtering and an `os.Logger` implementation; payloads are never logged |
 | **Testability** | `.inMemory` configuration and an `InMemoryStorageEngine` test double |
-| **Migration-ready** | The internal schema is a `VersionedSchema` opened with a `SchemaMigrationPlan` from day one |
+| **Migrations** | Versioned DTOs with typed or raw upgrade steps, applied lazily on read or eagerly with `migrateAll`; the internal store schema migrates through a `SchemaMigrationPlan` |
 
 ---
 
@@ -134,7 +134,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.4.0"),
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.5.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),
@@ -145,7 +145,7 @@ targets: [
 
 **File ▸ Add Package Dependencies…**, paste
 `https://github.com/ihusnainalii/SwiftLocalStorage.git`, choose **Up to Next Minor Version** from
-`0.4.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
+`0.5.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
 
 ---
 
@@ -513,13 +513,51 @@ Your DTOs are stored as encoded bytes, so they must stay `Codable`-compatible ac
 | Add an **optional** property | ✅ Old records decode; the new property is `nil` |
 | Add a property with a default in a custom `init(from:)` | ✅ Old records decode |
 | Remove a property | ✅ The extra key is ignored |
-| Add a **required** property | ❌ Old records throw `LocalStorageError.decodingFailed` |
-| Rename a property or change its type | ❌ Old records throw `decodingFailed` |
+| Add a **required** property | ❌ Old records throw `decodingFailed`, unless you add a [migration](#migrating-stored-dtos) |
+| Rename a property or change its type | ❌ Old records throw `decodingFailed`, unless you add a migration |
 | Rename the type without `LocalStorageNaming` | ⚠️ Old records become unreachable |
 
-If you make an incompatible change to cached data, the simplest fix is to catch `decodingFailed`,
-delete the record, and refetch it. For user data, keep the change compatible or write a migration.
-Built-in DTO migration hooks are on the [roadmap](ROADMAP.md).
+For cached data, the simplest fix is often to catch `decodingFailed`, delete the record, and
+refetch. For user data, use a migration.
+
+### Migrating stored DTOs
+
+Declare the DTO's version, and register one step per version bump. Types that don't adopt
+`LocalStorageVersioned` are version 1, and so is every record written before 0.5.
+
+```swift
+struct User: Codable, Identifiable, Sendable, LocalStorageNaming, LocalStorageVersioned {
+    static var storageTypeName: String { "User" }
+    static var storageVersion: Int { 3 }
+    let id: UUID
+    var fullName: String
+    var role: String
+}
+
+let storage = try LocalStorage(configuration: .init(migrations: [
+    // Typed step: decode the old shape, return the next one.
+    StorageMigration(User.self, from: 1) { (old: UserV1) in
+        UserV2(id: old.id, fullName: old.name)
+    },
+    // Raw step: edit the encoded payload when the old type no longer exists in code.
+    StorageMigration(User.self, from: 2) { json in
+        var object = try JSONSerialization.jsonObject(with: json) as! [String: Any]
+        object["role"] = "member"
+        return try JSONSerialization.data(withJSONObject: object)
+    },
+]))
+```
+
+- **Reads migrate lazily.** Reading an older record runs the steps `v → v+1 → … → current`, decodes
+  the result, and writes the upgraded payload back once. The write-back keeps `createdAt`,
+  `updatedAt` and expiry, and it doesn't emit change events.
+- **Or migrate eagerly** with `try await storage.migrateAll(User.self)`, for example at launch after
+  a release. It returns how many records it upgraded.
+- **Failures leave the record untouched** and throw `LocalStorageError.migrationFailed(key:underlying:)`.
+  `underlying` is `StorageMigrationError.missingStep`, `StorageMigrationError.storedVersionNewer`
+  (an older app reading data from a newer one), or whatever the step threw.
+- Key-value values migrate the same way, keyed by their value type.
+- `metadata(_:id:)?.version` reports a record's stored version.
 
 ---
 
@@ -531,6 +569,7 @@ Every failure is a `LocalStorageError`:
 |---|---|
 | `encodingFailed(underlying:)` | The value could not be encoded. Nothing was written. |
 | `decodingFailed(key:underlying:)` | Stored bytes do not decode into the requested type (DTO change or corrupt record) |
+| `migrationFailed(key:underlying:)` | An older record couldn't be upgraded to the type's current version (see [Migrating stored DTOs](#migrating-stored-dtos)) |
 | `persistenceFailed(underlying:)` | The underlying store failed to read or write |
 | `containerInitializationFailed(underlying:)` | The store could not be opened |
 | `cancelled` | The calling task was cancelled before the operation started. Nothing was written. |
@@ -663,7 +702,7 @@ repository is a candidate for a future companion package; see the [roadmap](ROAD
 
 [`Examples/SwiftLocalStorageDemo`](Examples/SwiftLocalStorageDemo) is a complete SwiftUI iOS app
 built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with paging, a
-category filter and a live expiry countdown; **Notes**, a CRUD repository driven by a live query;
+category filter and a live expiry countdown; **Notes**, a CRUD repository driven by a live query, whose `Note` is on version 2 with a migration;
 **Settings** (key-value); and an **Inspector** with a live change feed, `removeExpired()` and the
 storage log. The Domain layer never imports the package, and its
 tests use an in-memory store with an injected clock.
@@ -751,8 +790,8 @@ Every release is tagged `vX.Y.Z`, has a GitHub Release, and has a section in
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3 and observation in 0.4. Next up: DTO
-migration hooks (0.5), stored index fields (0.6), then an API freeze for 1.0.
+See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3, observation in 0.4 and DTO migrations in 0.5.
+Next up: stored index fields (0.6), then an API freeze for 1.0.
 
 ---
 

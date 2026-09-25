@@ -10,6 +10,8 @@ public struct LocalStorageConfiguration: Sendable {
     public var logger: any StorageLogger
     /// The loudest level emitted; `.none` (the default) disables logging.
     public var logLevel: StorageLogLevel
+    /// Upgrade steps for stored DTOs whose ``LocalStorageVersioned/storageVersion`` has moved on.
+    public var migrations: [StorageMigration]
 
     public init(
         name: String = "SwiftLocalStorage",
@@ -17,7 +19,8 @@ public struct LocalStorageConfiguration: Sendable {
         encoder: any StorageEncoder = JSONStorageEncoder(),
         decoder: any StorageDecoder = JSONStorageDecoder(),
         logger: any StorageLogger = NoopStorageLogger(),
-        logLevel: StorageLogLevel = .none
+        logLevel: StorageLogLevel = .none,
+        migrations: [StorageMigration] = []
     ) {
         self.name = name
         self.isStoredInMemoryOnly = isStoredInMemoryOnly
@@ -25,6 +28,7 @@ public struct LocalStorageConfiguration: Sendable {
         self.decoder = decoder
         self.logger = logger
         self.logLevel = logLevel
+        self.migrations = migrations
     }
 
     /// An in-memory store; nothing touches the file system.

@@ -8,6 +8,9 @@ public enum LocalStorageError: Error, Sendable {
     /// The stored bytes for `key` could not be decoded into the requested type — usually an
     /// incompatible DTO change or a corrupt record.
     case decodingFailed(key: String, underlying: any Error & Sendable)
+    /// The stored record for `key` could not be upgraded to the type's current version: a step is
+    /// missing, a step threw, or the record is newer than the app (see ``StorageMigrationError``).
+    case migrationFailed(key: String, underlying: any Error & Sendable)
     /// The underlying store failed to read or write.
     case persistenceFailed(underlying: any Error & Sendable)
     /// The store could not be opened.
@@ -19,7 +22,7 @@ public enum LocalStorageError: Error, Sendable {
 extension LocalStorageError {
     /// A stable, `Equatable` discriminant, handy for `switch`ing and for tests.
     public enum Code: String, Sendable, Hashable, CaseIterable {
-        case encodingFailed, decodingFailed, persistenceFailed, containerInitializationFailed
+        case encodingFailed, decodingFailed, migrationFailed, persistenceFailed, containerInitializationFailed
         case cancelled
     }
 
@@ -27,6 +30,7 @@ extension LocalStorageError {
         switch self {
         case .encodingFailed: .encodingFailed
         case .decodingFailed: .decodingFailed
+        case .migrationFailed: .migrationFailed
         case .persistenceFailed: .persistenceFailed
         case .containerInitializationFailed: .containerInitializationFailed
         case .cancelled: .cancelled
