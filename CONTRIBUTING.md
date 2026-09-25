@@ -35,7 +35,9 @@ Start a Discussion that describes the problem you're trying to solve. Check
   `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog sections: Added, Changed,
   Deprecated, Removed, Fixed, Security).
 - **Tests required** for new behavior and for every bug fix. Don't weaken existing tests.
-- **Docs in the same PR:** update `README.md` and doc comments for any public API change.
+- **Docs in the same PR:** update `README.md`, the DocC catalog and doc comments for any public API change.
+- **No breaking changes in 1.x:** CI rejects a PR that breaks source compatibility with the latest
+  release (`swift package diagnose-api-breaking-changes`). Additions must be additive.
 - **Disclose AI assistance** in the PR description if you used it.
 
 ## Development loop
@@ -45,6 +47,8 @@ swift build --build-tests -Xswiftc -warnings-as-errors   # must be clean
 swift test --parallel                                     # all green
 swift test --sanitize=thread                              # no data races
 bash scripts/coverage.sh                                  # line coverage must stay >= 90%
+swift package diagnose-api-breaking-changes v1.0.0       # no API breaks (use the latest tag)
+swift run -c release SwiftLocalStorageBenchmarks          # before/after numbers for performance PRs
 ```
 
 ## Code conventions
