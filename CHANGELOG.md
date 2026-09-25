@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Reads upgrade older records through the step chain and write the upgraded payload back once, keeping timestamps and emitting no change events; `migrateAll(_:)` upgrades a whole type eagerly.
 - `StorageMetadata.version` and `StorageMigrationError` (`missingStep`, `storedVersionNewer`).
 - Migration tests on both engines: versions on save, typed + raw chains, once-only write-back with preserved timestamps, list/page/filter reads, no events, missing step, newer record, throwing step, wrong shape, key-value, `migrateAll`, legacy records.
+- README "Migrating stored DTOs" section and `migrationFailed` in the error table; roadmap, security policy and demo README updated for 0.5.
 
 ### Changed
 - **Breaking (pre-1.0):** `LocalStorageError` gains `migrationFailed(key:underlying:)` (and `Code.migrationFailed`); exhaustive switches need the new case.
