@@ -9,6 +9,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 - Design spec for 1.1, the query track (`docs/specs/2026-09-25-swiftlocalstorage-v1.1-queries-design.md`).
+- `StorageFilter.hasPrefix(_:_:)` and `StorageFilter.oneOf(_:_:)` for string indexes, evaluated in the store. String conditions on one index intersect; a contradictory set (such as two different `equals`) now matches nothing instead of failing a precondition.
+
+### Changed
+- The SwiftData engine composes indexed queries from only the active conditions (built with `PredicateExpressions`) instead of one `#Predicate` with switched-off terms.
 
 ## [1.0.0] - 2026-09-25
 

@@ -268,6 +268,7 @@ public final class LocalStorage: Sendable {
     ) async throws -> [T] {
         let typeName = StorageKey.typeName(of: type)
         let query = try await indexQuery(type, filters: filters, order: order)
+        if query.matchesNothing { return [] }
         let records = try await perform("fetch \(typeName) indexed \(options.logDescription)", level: .debug) {
             try await engine.records(
                 kind: .entity, typeName: typeName, now: now(),
@@ -288,6 +289,7 @@ public final class LocalStorage: Sendable {
     ) async throws -> Int {
         let typeName = StorageKey.typeName(of: type)
         let query = try await indexQuery(type, filters: filters, order: nil)
+        if query.matchesNothing { return 0 }
         return try await perform("count \(typeName) indexed", level: .debug) {
             try await engine.count(kind: .entity, typeName: typeName, now: now(), index: query)
         }
