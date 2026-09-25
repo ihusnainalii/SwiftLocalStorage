@@ -39,8 +39,11 @@ actor SwiftDataEngine: StorageEngine {
         let sequenceBeforeBatch = lastSequence
         var inserted = Set<String>()
         do {
+            // One lookup for the whole batch: a fetch per write rescans the pending inserts,
+            // which made large batches quadratic.
+            var existingModels = try models(forKeys: Array(Set(writes.map(\.key))))
             for write in writes {
-                if let existing = try model(forKey: write.key) {
+                if let existing = existingModels[write.key] {
                     existing.kind = write.kind.rawValue
                     existing.typeName = write.typeName
                     existing.payload = write.payload
@@ -57,6 +60,7 @@ actor SwiftDataEngine: StorageEngine {
                     )
                     model.apply(write.index)
                     modelContext.insert(model)
+                    existingModels[write.key] = model
                     inserted.insert(write.key)
                 }
             }
@@ -243,6 +247,20 @@ actor SwiftDataEngine: StorageEngine {
     }
 
     // MARK: - Helpers
+
+    /// The stored models for `keys`, fetched in chunks that stay under SQLite's variable limit.
+    private func models(forKeys keys: [String]) throws -> [String: StoredRecord] {
+        var result: [String: StoredRecord] = [:]
+        for start in stride(from: 0, to: keys.count, by: 500) {
+            let chunk = Array(keys[start..<min(start + 500, keys.count)])
+            for model in try modelContext.fetch(
+                FetchDescriptor(predicate: #Predicate<StoredRecord> { chunk.contains($0.key) }))
+            {
+                result[model.key] = model
+            }
+        }
+        return result
+    }
 
     private func model(forKey key: String) throws -> StoredRecord? {
         var descriptor = FetchDescriptor<StoredRecord>(predicate: #Predicate { $0.key == key })
