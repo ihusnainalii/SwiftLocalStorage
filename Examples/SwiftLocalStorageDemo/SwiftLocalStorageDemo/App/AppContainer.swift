@@ -32,7 +32,8 @@ final class AppContainer {
     static func live() throws -> AppContainer {
         let logFeed = StorageLogFeed()
         let storage = try LocalStorage(configuration: .init(
-            name: "SwiftLocalStorageDemo", logger: logFeed.logger, logLevel: .debug
+            name: "SwiftLocalStorageDemo", logger: logFeed.logger, logLevel: .debug,
+            migrations: StorageMigrations.all
         ))
         return AppContainer(storage: storage, logFeed: logFeed)
     }
@@ -42,7 +43,8 @@ final class AppContainer {
         let logFeed = StorageLogFeed()
         // In-memory SwiftData never touches disk; opening it does not fail in practice.
         let storage = try! LocalStorage(configuration: .init(
-            isStoredInMemoryOnly: true, logger: logFeed.logger, logLevel: .debug
+            isStoredInMemoryOnly: true, logger: logFeed.logger, logLevel: .debug,
+            migrations: StorageMigrations.all
         ))
         return AppContainer(storage: storage, logFeed: logFeed, api: FakeProductAPI(latency: .zero))
     }

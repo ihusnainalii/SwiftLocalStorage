@@ -8,8 +8,31 @@ extension Product: LocalStorageNaming {
     static var storageTypeName: String { "Product" }
 }
 
-extension Note: LocalStorageNaming {
+extension Note: LocalStorageNaming, LocalStorageVersioned {
     static var storageTypeName: String { "Note" }
+    /// v1: no `priority`. v2: required `priority`.
+    static var storageVersion: Int { 2 }
+}
+
+/// Every stored-shape upgrade the app knows about; passed to `LocalStorageConfiguration`.
+enum StorageMigrations {
+    /// The shape of a note as demo builds before 0.5 stored it.
+    struct NoteV1: Codable, Sendable {
+        let id: UUID
+        var title: String
+        var body: String
+        var isPinned: Bool
+        var createdAt: Date
+    }
+
+    static let all: [StorageMigration] = [
+        StorageMigration(Note.self, from: 1) { (old: NoteV1) in
+            Note(
+                id: old.id, title: old.title, body: old.body, isPinned: old.isPinned,
+                createdAt: old.createdAt, priority: .normal
+            )
+        },
+    ]
 }
 
 extension AppSettings.CacheLifetime {

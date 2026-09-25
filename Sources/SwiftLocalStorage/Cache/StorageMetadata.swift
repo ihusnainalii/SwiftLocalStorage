@@ -10,12 +10,15 @@ public struct StorageMetadata: Sendable, Hashable {
     public let size: Int
     /// Whether the record had expired when this metadata was read.
     public let isExpired: Bool
+    /// The DTO version the payload was written with (see ``LocalStorageVersioned``).
+    public let version: Int
 
-    public init(createdAt: Date, updatedAt: Date, expiresAt: Date?, size: Int, isExpired: Bool) {
+    public init(createdAt: Date, updatedAt: Date, expiresAt: Date?, size: Int, isExpired: Bool, version: Int = 1) {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.expiresAt = expiresAt
         self.size = size
         self.isExpired = isExpired
+        self.version = version
     }
 }

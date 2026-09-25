@@ -43,6 +43,7 @@ struct ErrorTests {
         struct DiskFull: Error {}
         func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> { throw DiskFull() }
         func record(forKey key: String) async throws -> RecordSnapshot? { throw DiskFull() }
+        func rewrite(key: String, payload: Data, schemaVersion: Int) async throws { throw DiskFull() }
         func records(
             kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int
         ) async throws -> [RecordSnapshot] { throw DiskFull() }
@@ -94,6 +95,7 @@ struct ErrorTests {
     @Test("every error case maps to its code", arguments: [
         (LocalStorageError.encodingFailed(underlying: CancellationError()), LocalStorageError.Code.encodingFailed),
         (.decodingFailed(key: "k", underlying: CancellationError()), .decodingFailed),
+        (.migrationFailed(key: "k", underlying: CancellationError()), .migrationFailed),
         (.persistenceFailed(underlying: CancellationError()), .persistenceFailed),
         (.containerInitializationFailed(underlying: CancellationError()), .containerInitializationFailed),
         (.cancelled, .cancelled),

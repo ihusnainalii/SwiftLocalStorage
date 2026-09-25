@@ -51,12 +51,36 @@ private struct NoteRow: View {
             HStack {
                 if note.isPinned { Image(systemName: "pin.fill").foregroundStyle(.orange) }
                 Text(note.title).font(.headline)
+                Spacer()
+                PriorityBadge(priority: note.priority)
             }
             if !note.body.isEmpty {
                 Text(note.body).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
             }
             Text(note.createdAt, format: .relative(presentation: .named))
                 .font(.caption).foregroundStyle(.tertiary)
+        }
+    }
+}
+
+private struct PriorityBadge: View {
+    let priority: Note.Priority
+
+    var body: some View {
+        Text(priority.rawValue.capitalized)
+            .font(.caption.bold())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .foregroundStyle(color)
+            .background(color.opacity(0.15), in: .capsule)
+            .accessibilityLabel("\(priority.rawValue) priority")
+    }
+
+    private var color: Color {
+        switch priority {
+        case .low: .secondary
+        case .normal: .blue
+        case .high: .red
         }
     }
 }
@@ -71,6 +95,9 @@ private struct NoteEditor: View {
             Form {
                 TextField("Title", text: $note.title)
                 TextField("Body", text: $note.body, axis: .vertical).lineLimit(4...10)
+                Picker("Priority", selection: $note.priority) {
+                    ForEach(Note.Priority.allCases) { Text($0.rawValue.capitalized).tag($0) }
+                }
                 Toggle("Pinned", isOn: $note.isPinned)
             }
             .navigationTitle("Note")

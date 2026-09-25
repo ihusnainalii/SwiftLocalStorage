@@ -13,6 +13,8 @@ struct RecordWrite: Sendable, Equatable {
     var typeName: String
     var payload: Data
     var expiresAt: Date?
+    /// The DTO version of `payload` (see ``LocalStorageVersioned``).
+    var schemaVersion = 1
 }
 
 /// An immutable copy of a stored record — never a live `@Model` object, so it can leave the actor.
@@ -42,6 +44,10 @@ protocol StorageEngine: Sendable {
     /// - Returns: the keys that did not exist before (the rest were updates).
     @discardableResult
     func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String>
+
+    /// Replaces only the payload and its version (a migration write-back): timestamps, expiry and
+    /// sequence are untouched. A missing key is a no-op.
+    func rewrite(key: String, payload: Data, schemaVersion: Int) async throws
 
     /// The record for `key`, expired or not.
     func record(forKey key: String) async throws -> RecordSnapshot?

@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-25
+
+### Added
+- Design spec for v0.5 DTO migrations (`docs/specs/2026-09-25-swiftlocalstorage-v0.5-migrations-design.md`).
+- `LocalStorageVersioned` to declare a DTO's current version (unversioned types are version 1) and `StorageMigration` steps (typed `Old → New`, or raw payload) registered in `LocalStorageConfiguration.migrations`.
+- Reads upgrade older records through the step chain and write the upgraded payload back once, keeping timestamps and emitting no change events; `migrateAll(_:)` upgrades a whole type eagerly.
+- `StorageMetadata.version` and `StorageMigrationError` (`missingStep`, `storedVersionNewer`).
+- Migration tests on both engines: versions on save, typed + raw chains, once-only write-back with preserved timestamps, list/page/filter reads, no events, missing step, newer record, throwing step, wrong shape, key-value, `migrateAll`, legacy records.
+- README "Migrating stored DTOs" section and `migrationFailed` in the error table; roadmap, security policy and demo README updated for 0.5.
+
+### Changed
+- **Breaking (pre-1.0):** `LocalStorageError` gains `migrationFailed(key:underlying:)` (and `Code.migrationFailed`); exhaustive switches need the new case.
+- Internal: records now store their DTO version (the existing `schemaVersion` column) on insert and update; new engine `rewrite(key:payload:schemaVersion:)` for migration write-backs.
+- Demo app: `Note` gains a required `priority` (stored version 2) with a v1 → v2 `StorageMigration`, so notes saved by earlier demo builds upgrade on first read; priority shows as a badge and is editable.
+
 ## [0.4.0] - 2026-09-25
 
 ### Added
@@ -92,7 +107,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.2...v0.2.3
