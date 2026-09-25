@@ -12,6 +12,7 @@
 | **0.5.0** | `LocalStorageVersioned` DTOs, typed/raw `StorageMigration` steps, lazy write-back on read, `migrateAll`, `LocalStorageError.migrationFailed` |
 | **0.6.0** | `LocalStorageIndexed` (up to 3 string/number indexes), in-store `matching:` filters, `orderedBy:`, counts and pages, automatic re-indexing, schema V3 |
 | **1.0.0** | API freeze (CI breakage check), DocC catalog, benchmarks target, linear batch saves, multi-platform CI (iOS, macOS, tvOS, watchOS, visionOS) |
+| **1.1.0** | Live queries over indexed filters, `hasPrefix` / `oneOf` string filters, batched `where:` and `migrateAll`, Actions on Node 24 |
 
 ## Beyond 1.0 (candidates)
 

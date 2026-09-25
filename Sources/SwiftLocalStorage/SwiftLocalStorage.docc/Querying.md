@@ -24,7 +24,8 @@ if page.hasNextPage { /* load page 2 */ }
 
 ## Filter on any field
 
-A closure filter works on any property, but decodes every live value of the type first:
+A closure filter works on any property. It decodes values in memory, 500 at a time, until it has
+`offset + limit` matches:
 
 ```swift
 let admins = try await storage.fetch(User.self, where: { $0.role == .admin })

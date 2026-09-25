@@ -11,7 +11,8 @@
       "prerelease": false,
       "include-component-in-tag": false,
       "extra-files": [
-        "version.txt"
+        "version.txt",
+        "README.md"
       ]
     }
   },
