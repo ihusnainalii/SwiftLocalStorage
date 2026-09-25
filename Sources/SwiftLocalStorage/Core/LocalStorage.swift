@@ -390,14 +390,37 @@ public final class LocalStorage: Sendable {
     public func updates<T: Identifiable & Codable & Sendable>(
         of type: T.Type, options: FetchOptions = .default
     ) -> AsyncThrowingStream<[T], any Error> {
+        liveQuery(type) { try await self.fetch(type, options: options) }
+    }
+
+    /// The values of `type` matching every condition in `filters`, ordered and sliced like
+    /// ``fetch(_:matching:orderedBy:options:)``, then again after every change to the type — a live
+    /// query that filters, orders and slices in the store:
+    ///
+    /// ```swift
+    /// for try await admins in storage.updates(of: User.self, matching: [.equals("role", "admin")]) { … }
+    /// ```
+    ///
+    /// Bursts of writes are coalesced into one refetch, as for ``updates(of:options:)``.
+    public func updates<T: Identifiable & Codable & Sendable & LocalStorageIndexed>(
+        of type: T.Type, matching filters: [StorageFilter], orderedBy order: StorageIndexOrder? = nil,
+        options: FetchOptions = .default
+    ) -> AsyncThrowingStream<[T], any Error> {
+        liveQuery(type) { try await self.fetch(type, matching: filters, orderedBy: order, options: options) }
+    }
+
+    /// Emits `fetch()` now, then once per burst of changes to `type`.
+    private func liveQuery<T: Identifiable & Codable & Sendable>(
+        _ type: T.Type, fetch: @escaping @Sendable () async throws -> [T]
+    ) -> AsyncThrowingStream<[T], any Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             // Subscribe before the first fetch so no change can slip between the two.
             let changes = self.changes(of: type, bufferingPolicy: .bufferingNewest(1))
             let task = Task {
                 do {
-                    continuation.yield(try await self.fetch(type, options: options))
+                    continuation.yield(try await fetch())
                     for await _ in changes {
-                        continuation.yield(try await self.fetch(type, options: options))
+                        continuation.yield(try await fetch())
                     }
                     continuation.finish()
                 } catch {

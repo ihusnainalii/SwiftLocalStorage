@@ -88,4 +88,52 @@ struct IndexFilterTests {
         #expect(page.items.isEmpty)
         #expect(page.totalCount == 0)
     }
+
+    // MARK: - Indexed live queries
+
+    @Test("indexed updates emit filtered, ordered, limited results after each write", arguments: Engine.allCases)
+    func liveQuery(engine: Engine) async throws {
+        let storage = try await seeded(engine)
+        var results = storage.updates(
+            of: Label.self, matching: [.hasPrefix("name", "a")], orderedBy: .descending("rank"),
+            options: FetchOptions(limit: 2)
+        ).makeAsyncIterator()
+        #expect(try await results.next()?.map(\.id) == [1, 2])
+
+        try await storage.save(Label(id: 6, name: "alpha", rank: 99))
+        #expect(try await results.next()?.map(\.id) == [6, 1])
+
+        try await storage.save(Label(id: 7, name: "zulu", rank: 100))  // doesn't match: same result
+        #expect(try await results.next()?.map(\.id) == [6, 1])
+    }
+
+    @Test("indexed updates re-index records written without the declaration", arguments: Engine.allCases)
+    func liveQueryReindexes(engine: Engine) async throws {
+        let storage = try engine.storage()
+        var results = storage.updates(of: Member.self, matching: [.equals("role", "admin")]).makeAsyncIterator()
+        #expect(try await results.next() == [])
+
+        // Events are typed, so the unindexed write alone doesn't wake the stream; the next Member
+        // write does, and its refetch re-indexes the older record too.
+        try await storage.save(PlainMember(id: 1, role: "admin", age: 30, joined: nil))
+        try await storage.save(Member(id: 2, role: "admin", age: 40, joined: nil))
+        #expect(try await results.next()?.map(\.id) == [1, 2])
+    }
+
+    @Test("indexed updates finish with the error when the store fails")
+    func liveQueryFailure() async throws {
+        let storage = LocalStorage(configuration: .inMemory, engine: ErrorTests.FailingEngine(), now: { Date() })
+        var results = storage.updates(of: Label.self, matching: [.oneOf("name", ["a"])]).makeAsyncIterator()
+
+        await #expect {
+            _ = try await results.next()
+        } throws: { ($0 as? LocalStorageError)?.code == .persistenceFailed }
+    }
+
+    @Test("repository forwards indexed updates")
+    func repositoryLiveQuery() async throws {
+        let storage = try await seeded(.inMemory)
+        var results = storage.repository(Label.self).updates(matching: [.equals("name", "member")]).makeAsyncIterator()
+        #expect(try await results.next()?.map(\.id) == [4])
+    }
 }
