@@ -44,7 +44,8 @@ struct CatalogTests {
 
         await viewModel.load()
         #expect(viewModel.snapshot?.source == .network)
-        #expect(viewModel.products.count == 10)
+        #expect(viewModel.products.count == CatalogViewModel.pageSize)
+        #expect(viewModel.totalCount == 10)
 
         await viewModel.load()
         #expect(viewModel.snapshot?.source == .cache)
@@ -59,10 +60,11 @@ struct CatalogTests {
     func expiry() async throws {
         let harness = try Harness()
         let viewModel = harness.catalogViewModel()
-        await viewModel.load()                                   // default lifetime: 15 s
-        #expect(viewModel.snapshot?.expiresAt == harness.clock.now + 15)
+        let lifetime = TimeInterval(try #require(AppSettings().cacheLifetime.seconds))
+        await viewModel.load()
+        #expect(viewModel.snapshot?.expiresAt == harness.clock.now + lifetime)
 
-        harness.clock.advance(by: 16)
+        harness.clock.advance(by: lifetime + 1)
         await viewModel.load()
 
         #expect(viewModel.snapshot?.source == .network)
@@ -95,6 +97,40 @@ struct CatalogTests {
         #expect(prices == prices.sorted())
     }
 
+    @Test("pages load 4 at a time until the end")
+    func paging() async throws {
+        let harness = try Harness()
+        let viewModel = harness.catalogViewModel()
+        await viewModel.load()
+        #expect(viewModel.hasNextPage)
+
+        await viewModel.loadNextPage()
+        #expect(viewModel.products.count == 8)
+        await viewModel.loadNextPage()
+        #expect(viewModel.products.map(\.id) == Array(1...10))
+        #expect(!viewModel.hasNextPage)
+
+        await viewModel.loadNextPage()                             // no-op at the end
+        #expect(viewModel.products.count == 10)
+        #expect(await harness.api.requestCount == 1)               // paging never hits the network
+    }
+
+    @Test("category filter narrows the pages")
+    func categoryFilter() async throws {
+        let harness = try Harness()
+        let viewModel = harness.catalogViewModel()
+        await viewModel.load()
+        #expect(viewModel.categories.contains("Audio"))
+
+        await viewModel.select(category: "Accessories")
+        #expect(viewModel.products.map(\.name) == ["Mechanical Keyboard", "Wireless Mouse"])
+        #expect(viewModel.totalCount == 2)
+        #expect(!viewModel.hasNextPage)
+
+        await viewModel.select(category: nil)
+        #expect(viewModel.totalCount == 10)
+    }
+
     @Test("deleting and clearing the cache")
     func deletion() async throws {
         let harness = try Harness()
@@ -102,7 +138,8 @@ struct CatalogTests {
         await viewModel.load()
 
         await viewModel.delete(at: [0, 1])
-        #expect(viewModel.products.count == 8)
+        #expect(viewModel.products.count == 2)
+        #expect(viewModel.totalCount == 8)
         #expect(try await harness.maintenance.stats().liveProducts == 8)
 
         await viewModel.clearCache()
@@ -193,7 +230,7 @@ struct SettingsTests {
         await harness.catalogViewModel().load()
         try await harness.notes.save(Note(title: "Keep"))
 
-        harness.clock.advance(by: 60)
+        harness.clock.advance(by: 3_600)
         await viewModel.removeExpired()
         #expect(viewModel.statusMessage == "Removed 10 expired records.")
         #expect(viewModel.stats == StorageStats(liveProducts: 0, notes: 1))

@@ -66,22 +66,48 @@ actor SwiftDataEngine: StorageEngine {
         try model(forKey: key).map(Self.snapshot)
     }
 
-    func records(kind: RecordKind, typeName: String, now: Date) async throws -> [RecordSnapshot] {
+    func records(
+        kind: RecordKind, typeName: String, now: Date,
+        sort: StorageSort, limit: Int?, offset: Int
+    ) async throws -> [RecordSnapshot] {
         let kindRaw = kind.rawValue
-        var descriptor = FetchDescriptor<StoredRecord>(
-            predicate: #Predicate { $0.kind == kindRaw && $0.typeName == typeName },
-            sortBy: [SortDescriptor(\.createdAt), SortDescriptor(\.sequence)]
-        )
-        descriptor.includePendingChanges = true
-        let models = try modelContext.fetch(descriptor)
+        let distantFuture = Date.distantFuture
 
         // Lazy purge: expired rows of this type are removed as a side effect of reading them.
-        let expired = models.filter { Self.isExpired($0, at: now) }
-        if !expired.isEmpty {
-            expired.forEach(modelContext.delete)
+        let expired = #Predicate<StoredRecord> {
+            $0.kind == kindRaw && $0.typeName == typeName && ($0.expiresAt ?? distantFuture) <= now
+        }
+        if try modelContext.fetchCount(FetchDescriptor(predicate: expired)) > 0 {
+            try modelContext.delete(model: StoredRecord.self, where: expired)
             try modelContext.save()
         }
-        return models.filter { !Self.isExpired($0, at: now) }.map(Self.snapshot)
+
+        // SwiftData treats fetchLimit == 0 as "no limit", so answer limit 0 here.
+        if limit == 0 { return [] }
+
+        // Sort and slice in the store, so only the requested rows are loaded.
+        var descriptor = FetchDescriptor<StoredRecord>(
+            predicate: #Predicate {
+                $0.kind == kindRaw && $0.typeName == typeName && ($0.expiresAt ?? distantFuture) > now
+            },
+            sortBy: Self.sortDescriptors(sort)
+        )
+        descriptor.fetchOffset = offset
+        descriptor.fetchLimit = limit
+        return try modelContext.fetch(descriptor).map(Self.snapshot)
+    }
+
+    private static func sortDescriptors(_ sort: StorageSort) -> [SortDescriptor<StoredRecord>] {
+        switch sort {
+        case .oldestFirst:
+            [SortDescriptor(\.createdAt), SortDescriptor(\.sequence)]
+        case .newestFirst:
+            [SortDescriptor(\.createdAt, order: .reverse), SortDescriptor(\.sequence, order: .reverse)]
+        case .recentlyUpdated:
+            [SortDescriptor(\.updatedAt, order: .reverse), SortDescriptor(\.sequence, order: .reverse)]
+        case .leastRecentlyUpdated:
+            [SortDescriptor(\.updatedAt), SortDescriptor(\.sequence)]
+        }
     }
 
     func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int {
@@ -130,10 +156,6 @@ actor SwiftDataEngine: StorageEngine {
         var descriptor = FetchDescriptor<StoredRecord>(predicate: #Predicate { $0.key == key })
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first
-    }
-
-    private static func isExpired(_ model: StoredRecord, at now: Date) -> Bool {
-        model.expiresAt.map { $0 <= now } ?? false
     }
 
     private static func snapshot(_ model: StoredRecord) -> RecordSnapshot {

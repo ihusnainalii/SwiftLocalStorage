@@ -28,6 +28,20 @@ public struct LocalRepository<Entity: Identifiable & Codable & Sendable>: Sendab
         try await storage.fetch(Entity.self)
     }
 
+    public func fetchAll(options: FetchOptions) async throws -> [Entity] {
+        try await storage.fetch(Entity.self, options: options)
+    }
+
+    public func fetch(
+        where isIncluded: (Entity) throws -> Bool, options: FetchOptions = .default
+    ) async throws -> [Entity] {
+        try await storage.fetch(Entity.self, where: isIncluded, options: options)
+    }
+
+    public func page(_ page: Int, pageSize: Int, sort: StorageSort = .oldestFirst) async throws -> StoragePage<Entity> {
+        try await storage.page(Entity.self, page: page, pageSize: pageSize, sort: sort)
+    }
+
     public func count() async throws -> Int {
         try await storage.count(Entity.self)
     }
