@@ -87,16 +87,31 @@ struct CatalogTests {
         #expect(viewModel.snapshot?.expiresAt == nil)
     }
 
-    @Test("sort preference is applied")
+    @Test("sort by price orders across pages, not just within the loaded ones")
     func sorting() async throws {
         let harness = try Harness()
         try await harness.settings.save(AppSettings(sortByPrice: true))
         let viewModel = harness.catalogViewModel()
 
         await viewModel.load()
+        while viewModel.hasNextPage { await viewModel.loadNextPage() }
 
         let prices = viewModel.products.map(\.price)
+        #expect(prices.count == 10)
         #expect(prices == prices.sorted())
+    }
+
+    @Test("category filter and price order combine in the store")
+    func filteredAndSorted() async throws {
+        let harness = try Harness()
+        try await harness.settings.save(AppSettings(sortByPrice: true))
+        let viewModel = harness.catalogViewModel()
+        await viewModel.load()
+
+        await viewModel.select(category: "Audio")
+
+        #expect(viewModel.products.map(\.category) == ["Audio", "Audio"])
+        #expect(viewModel.products.map(\.price) == viewModel.products.map(\.price).sorted())
     }
 
     @Test("pages load 4 at a time until the end")

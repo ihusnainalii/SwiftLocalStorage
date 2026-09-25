@@ -4,8 +4,12 @@ import SwiftLocalStorage
 // The only layer that imports SwiftLocalStorage. Domain entities are persisted as-is — no
 // `@Model` mirrors — with stable storage names pinned here, out of the Domain layer.
 
-extension Product: LocalStorageNaming {
+extension Product: LocalStorageNaming, LocalStorageIndexed {
     static var storageTypeName: String { "Product" }
+    /// Stored next to each product so the Catalog filters and sorts in the store.
+    static var storageIndexes: [StorageIndex<Product>] {
+        [.string("category") { $0.category }, .number("price") { $0.price }]
+    }
 }
 
 extension Note: LocalStorageNaming, LocalStorageVersioned {
@@ -66,18 +70,16 @@ struct CachedProductRepository: ProductRepository {
         )
     }
 
-    func cachedPage(_ page: Int, size: Int, category: String?) async throws -> ProductPage {
-        guard let category else {
-            let result = try await storage.page(Product.self, page: page, pageSize: size)
-            return ProductPage(
-                products: result.items, page: page, totalCount: result.totalCount, hasNextPage: result.hasNextPage
-            )
-        }
-        // Category lives inside the DTO, so filter with a closure; slice the filtered result.
-        let matching = try await storage.fetch(Product.self, where: { $0.category == category })
-        let items = Array(matching.dropFirst((page - 1) * size).prefix(size))
+    func cachedPage(_ page: Int, size: Int, category: String?, sortedByPrice: Bool) async throws -> ProductPage {
+        // Both run on the `category` / `price` indexes inside the store: only this page is decoded.
+        let result = try await storage.page(
+            Product.self,
+            matching: category.map { [.equals("category", $0)] } ?? [],
+            orderedBy: sortedByPrice ? .ascending("price") : nil,
+            page: page, pageSize: size
+        )
         return ProductPage(
-            products: items, page: page, totalCount: matching.count, hasNextPage: page * size < matching.count
+            products: result.items, page: page, totalCount: result.totalCount, hasNextPage: result.hasNextPage
         )
     }
 

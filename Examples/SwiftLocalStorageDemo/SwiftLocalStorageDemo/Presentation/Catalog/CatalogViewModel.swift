@@ -93,9 +93,8 @@ final class CatalogViewModel {
     }
 
     private func append(page: Int) async throws {
-        let result = try await repository.cachedPage(page, size: Self.pageSize, category: category)
+        let result = try await repository.cachedPage(page, size: Self.pageSize, category: category, sortedByPrice: sortByPrice)
         products += result.products
-        if sortByPrice { products = LoadCatalogUseCase.sorted(products, byPrice: true) }
         loadedPage = page
         totalCount = result.totalCount
         hasNextPage = result.hasNextPage
