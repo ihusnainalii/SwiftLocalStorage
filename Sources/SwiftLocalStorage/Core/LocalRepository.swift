@@ -79,6 +79,24 @@ public struct LocalRepository<Entity: Identifiable & Codable & Sendable>: Sendab
     }
 }
 
+extension LocalRepository where Entity: LocalStorageIndexed {
+    public func fetch(
+        matching filters: [StorageFilter], orderedBy order: StorageIndexOrder? = nil, options: FetchOptions = .default
+    ) async throws -> [Entity] {
+        try await storage.fetch(Entity.self, matching: filters, orderedBy: order, options: options)
+    }
+
+    public func count(matching filters: [StorageFilter]) async throws -> Int {
+        try await storage.count(Entity.self, matching: filters)
+    }
+
+    public func page(
+        matching filters: [StorageFilter], orderedBy order: StorageIndexOrder? = nil, page: Int, pageSize: Int
+    ) async throws -> StoragePage<Entity> {
+        try await storage.page(Entity.self, matching: filters, orderedBy: order, page: page, pageSize: pageSize)
+    }
+}
+
 extension LocalStorage {
     /// A repository for `type` backed by this storage.
     public func repository<Entity: Identifiable & Codable & Sendable>(

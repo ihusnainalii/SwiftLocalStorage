@@ -43,11 +43,13 @@ struct ErrorTests {
         struct DiskFull: Error {}
         func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> { throw DiskFull() }
         func record(forKey key: String) async throws -> RecordSnapshot? { throw DiskFull() }
-        func rewrite(key: String, payload: Data, schemaVersion: Int) async throws { throw DiskFull() }
+        func rewrite(key: String, payload: Data, schemaVersion: Int, index: IndexValues?) async throws { throw DiskFull() }
+        func staleIndexKeys(typeName: String, signature: String) async throws -> [String] { throw DiskFull() }
+        func setIndex(key: String, values: IndexValues) async throws { throw DiskFull() }
         func records(
-            kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int
+            kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int, index: IndexQuery?
         ) async throws -> [RecordSnapshot] { throw DiskFull() }
-        func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int { throw DiskFull() }
+        func count(kind: RecordKind, typeName: String, now: Date, index: IndexQuery?) async throws -> Int { throw DiskFull() }
         func delete(keys: [String]) async throws { throw DiskFull() }
         func deleteAll(kind: RecordKind, typeName: String) async throws { throw DiskFull() }
         func deleteExpired(now: Date) async throws -> Int { throw DiskFull() }
