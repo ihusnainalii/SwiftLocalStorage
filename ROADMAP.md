@@ -11,18 +11,14 @@
 | **0.4.0** | `changes(of:)` typed change feed, `updates(of:options:)` coalescing live query, `all(_:batchSize:)` batched iteration |
 | **0.5.0** | `LocalStorageVersioned` DTOs, typed/raw `StorageMigration` steps, lazy write-back on read, `migrateAll`, `LocalStorageError.migrationFailed` |
 | **0.6.0** | `LocalStorageIndexed` (up to 3 string/number indexes), in-store `matching:` filters, `orderedBy:`, counts and pages, automatic re-indexing, schema V3 |
-
-## Next
-
-| Version | Track | Scope |
-|---|---|---|
-| **1.0** | API freeze | DocC catalog, benchmarks target (save/fetch/delete at 1, 100 and 1,000 records; 1 MB and 10 MB payloads), coverage floor, multi-platform CI, public `StorageEngine` decision |
+| **1.0.0** | API freeze (CI breakage check), DocC catalog, benchmarks target, linear batch saves, multi-platform CI (iOS, macOS, tvOS, watchOS, visionOS) |
 
 ## Beyond 1.0 (candidates)
 
 - A companion package with a generic cached repository (`cacheFirst`, `networkFirst`,
   `staleWhileRevalidate`) built on SwiftNetworkKit + SwiftLocalStorage.
-- Alternative engines (SQLite, file-based) behind the engine seam.
+- Alternative engines (SQLite, file-based). The engine protocol stays internal in 1.x, so a public
+  engine is a 2.0 candidate.
 - Optional encryption at rest.
 
 Have feedback? Open a [Discussion](https://github.com/ihusnainalii/SwiftLocalStorage/discussions).

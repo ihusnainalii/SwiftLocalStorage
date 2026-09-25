@@ -72,6 +72,19 @@ struct EngineContractTests {
         #expect(try await storage.fetch(User.self, id: id)?.name == "B")
     }
 
+    @Test("a large batch mixing new and existing IDs updates in place", arguments: Engine.allCases)
+    func largeMixedBatch(engine: Engine) async throws {
+        let storage = try engine.storage()
+        let existing = (0..<700).map { User.make("old\($0)") }
+        try await storage.save(existing)
+
+        let renamed = existing.map { User(id: $0.id, name: "new", email: $0.email) }
+        try await storage.save(renamed + (0..<300).map { User.make("fresh\($0)") })
+
+        #expect(try await storage.count(User.self) == 1_000)
+        #expect(try await storage.fetch(User.self, where: { $0.name == "new" }).count == 700)
+    }
+
     @Test("fetch all purges expired values", arguments: Engine.allCases)
     func fetchAllPurges(engine: Engine) async throws {
         let clock = TestDateClock()

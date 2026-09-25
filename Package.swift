@@ -18,6 +18,12 @@ let package = Package(
             name: "SwiftLocalStorage",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // Not a product: `swift run -c release SwiftLocalStorageBenchmarks`.
+        .executableTarget(
+            name: "SwiftLocalStorageBenchmarks",
+            dependencies: ["SwiftLocalStorage"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .testTarget(
             name: "SwiftLocalStorageTests",
             dependencies: ["SwiftLocalStorage"],

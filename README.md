@@ -19,7 +19,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.6.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 1.0.0 (stable API: every 1.x release is source-compatible; see [Versioning](#versioning))
+- **Docs:** DocC catalog in [`Sources/SwiftLocalStorage/SwiftLocalStorage.docc`](Sources/SwiftLocalStorage/SwiftLocalStorage.docc) (a static archive is attached to each release)
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -145,7 +146,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.6.0"),
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "1.0.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),
@@ -155,8 +156,8 @@ targets: [
 ### Xcode
 
 **File ▸ Add Package Dependencies…**, paste
-`https://github.com/ihusnainalii/SwiftLocalStorage.git`, choose **Up to Next Minor Version** from
-`0.6.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
+`https://github.com/ihusnainalii/SwiftLocalStorage.git`, choose **Up to Next Major Version** from
+`1.0.0`, and add the `SwiftLocalStorage` library to your target.
 
 ---
 
@@ -791,6 +792,19 @@ Encoding and decoding run on the calling task, outside the storage actor, so a l
 doesn't block other storage calls. Logging is off by default, and log lines are built only when
 their level is enabled.
 
+Measured on an Apple M1 Pro (release build, on-disk store, median of 5 runs):
+
+| Operation | Time |
+|---|---:|
+| save 1,000 records (one batch) | 148 ms |
+| fetch all of 1,000 | 33 ms |
+| filter 1,000 by index (`matching:`) | 3.8 ms |
+| filter 1,000 by closure (`where:`) | 33 ms |
+| save / fetch a 10 MB payload | 56 ms / 19 ms |
+
+Full table and notes in [docs/benchmarks.md](docs/benchmarks.md). Run them on your own machine with
+`swift run -c release SwiftLocalStorageBenchmarks`.
+
 ---
 
 ## Using it with SwiftNetworkKit
@@ -1048,6 +1062,7 @@ Stored data carries over across every release. Only these releases need code cha
 
 | From → to | What to change |
 |---|---|
+| 0.6 → 1.0 | Nothing required. 1.0 freezes the 0.6 API; batch saves are faster. |
 | any → 0.6 | Nothing required. To use indexed fields, adopt `LocalStorageIndexed`; existing records are indexed automatically. |
 | ≤ 0.4 → 0.5 | `LocalStorageError` gained `migrationFailed(key:underlying:)` (and `Code.migrationFailed`). Add a case to exhaustive `switch` statements. |
 | ≤ 0.2 → 0.3+ | Nothing required. New parameters all have defaults. |
@@ -1058,10 +1073,15 @@ See [CHANGELOG.md](CHANGELOG.md) for every change by version.
 
 ## Versioning
 
-[Semantic Versioning](https://semver.org). Before 1.0.0, a **minor** version may contain breaking
-changes and a **patch** version never does. From 1.0.0: **major** for breaking changes, **minor**
-for additions, **patch** for fixes. Types behind `@_spi(SwiftLocalStorageTesting)` are never
-covered.
+[Semantic Versioning](https://semver.org). Since 1.0.0 the API is stable: **major** for breaking
+changes, **minor** for additions, **patch** for fixes. Code that compiles against 1.x keeps
+compiling against every later 1.x, and a store written by 1.x opens in every later 1.x. CI runs
+`swift package diagnose-api-breaking-changes` against the latest release on every pull request.
+
+Two things are allowed in a minor release: new cases in the error enums (`LocalStorageError`,
+`LocalStorageError.Code`, `StorageMigrationError`), so handle errors with a `default` branch, and
+higher minimum platforms. Types behind `@_spi(SwiftLocalStorageTesting)` and the internal storage
+engine are never covered. Details: the *API Stability* article in the DocC catalog.
 
 Every release is tagged `vX.Y.Z`, has a GitHub Release, and has a section in
 [CHANGELOG.md](CHANGELOG.md). Commits follow [Conventional Commits](https://www.conventionalcommits.org).
@@ -1070,8 +1090,8 @@ Every release is tagged `vX.Y.Z`, has a GitHub Release, and has a section in
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3, observation in 0.4, DTO migrations in 0.5 and
-indexed fields in 0.6. Next up: the 1.0 API freeze.
+See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3, observation in 0.4, DTO migrations in 0.5,
+indexed fields in 0.6, and the 1.0 API freeze with a DocC catalog and benchmarks.
 
 ---
 
