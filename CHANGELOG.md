@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-25
+
+The API is now stable: every 1.x release stays source-compatible with this one.
 
 ### Added
 - README: "API at a glance" reference tables, a compiled-and-run "Complete example" (versioned + indexed DTO, migration, cache refresh, live indexed SwiftUI list, launch maintenance), "Performance" cost table and "Upgrading" guide; refreshed architecture (schema V3, index slots, two kinds of versioning), core concepts, metadata `version`, configuration `migrations:`, testing clock injection, known limitations and FAQ.
@@ -19,7 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Batch saves are linear again: the SwiftData engine looks up every key of a batch in one fetch (chunked under SQLite's variable limit) instead of one fetch per record, which rescanned the pending inserts. Saving 1,000 records in one batch drops from ~1.5 s to ~150 ms.
 
 ### Changed
-- README (1.0 stability promise, DocC link, benchmark figures, upgrading row), ROADMAP (1.0 shipped; a public engine moves to 2.0 candidates) and CONTRIBUTING (API breakage check, benchmarks).
+- README (1.0 stability promise, DocC link, benchmark figures, upgrading row), ROADMAP (1.0 shipped; a public engine moves to 2.0 candidates) and CONTRIBUTING (API breakage check, benchmarks); SECURITY supports 1.x.
 
 ## [0.6.0] - 2026-09-25
 
@@ -137,7 +140,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...v0.4.0

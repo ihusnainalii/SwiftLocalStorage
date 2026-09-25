@@ -4,10 +4,10 @@
 
 | Version | Supported |
 |---|---|
-| 0.6.x | ✅ |
-| < 0.6 | ❌ |
+| 1.x | ✅ |
+| < 1.0 | ❌ |
 
-Before 1.0, only the latest minor release receives fixes.
+Fixes land in the latest 1.x minor release.
 
 ## Security posture
 
