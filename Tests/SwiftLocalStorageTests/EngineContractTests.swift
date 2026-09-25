@@ -48,6 +48,17 @@ struct EngineContractTests {
         #expect(try await storage.fetch(User.self).map(\.name) == ["First", "Second", "Third"])
     }
 
+    @Test("records saved in one batch keep their insertion order", arguments: Engine.allCases)
+    func batchOrder(engine: Engine) async throws {
+        let storage = try engine.storage()
+        let users = (0..<50).map { User.make("U\($0)") }     // all share one createdAt
+
+        try await storage.save(users)
+        try await storage.save(users[10])                       // an update keeps its position
+
+        #expect(try await storage.fetch(User.self).map(\.id) == users.map(\.id))
+    }
+
     @Test("a batch with a repeated ID keeps the last value", arguments: Engine.allCases)
     func duplicateIDsInBatch(engine: Engine) async throws {
         let storage = try engine.storage()

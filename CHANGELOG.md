@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Fixed
+- SwiftData engine: `fetch(_:)` returned records saved in the same batch (same `createdAt`) in random order. Records now carry an insertion `sequence` used as a tiebreaker, matching the in-memory engine and the documented insertion order.
+
+### Changed
+- Internal SwiftData schema V2 (adds `StoredRecord.sequence`); existing V1 stores upgrade automatically through a lightweight migration stage. No public API change.
+
+### Added
+- Regression tests: 50-record batch ordering on both engines, and a migration test that writes a real V1 store to disk and reopens it with the current schema.
+
 ## [0.2.2] - 2026-09-25
 
 ### Added
