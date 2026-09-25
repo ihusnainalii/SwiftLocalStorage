@@ -30,12 +30,23 @@ import Foundation
         rows[key]
     }
 
-    func records(kind: RecordKind, typeName: String, now: Date) async throws -> [RecordSnapshot] {
+    func records(
+        kind: RecordKind, typeName: String, now: Date,
+        sort: StorageSort, limit: Int?, offset: Int
+    ) async throws -> [RecordSnapshot] {
         let matching = rows.values.filter { $0.kind == kind && $0.typeName == typeName }
         matching.filter { $0.isExpired(at: now) }.forEach { remove($0.key) }
-        return matching
-            .filter { !$0.isExpired(at: now) }
-            .sorted { ($0.createdAt, order[$0.key] ?? 0) < ($1.createdAt, order[$1.key] ?? 0) }
+        let sorted = matching.filter { !$0.isExpired(at: now) }.sorted { lhs, rhs in
+            let (l, r) = (order[lhs.key] ?? 0, order[rhs.key] ?? 0)
+            return switch sort {
+            case .oldestFirst: (lhs.createdAt, l) < (rhs.createdAt, r)
+            case .newestFirst: (lhs.createdAt, l) > (rhs.createdAt, r)
+            case .recentlyUpdated: (lhs.updatedAt, l) > (rhs.updatedAt, r)
+            case .leastRecentlyUpdated: (lhs.updatedAt, l) < (rhs.updatedAt, r)
+            }
+        }
+        let sliced = sorted.dropFirst(offset)
+        return Array(limit.map { sliced.prefix($0) } ?? sliced)
     }
 
     func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int {

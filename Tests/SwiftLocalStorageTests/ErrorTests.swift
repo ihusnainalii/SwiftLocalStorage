@@ -43,7 +43,9 @@ struct ErrorTests {
         struct DiskFull: Error {}
         func upsert(_ writes: [RecordWrite], now: Date) async throws { throw DiskFull() }
         func record(forKey key: String) async throws -> RecordSnapshot? { throw DiskFull() }
-        func records(kind: RecordKind, typeName: String, now: Date) async throws -> [RecordSnapshot] { throw DiskFull() }
+        func records(
+            kind: RecordKind, typeName: String, now: Date, sort: StorageSort, limit: Int?, offset: Int
+        ) async throws -> [RecordSnapshot] { throw DiskFull() }
         func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int { throw DiskFull() }
         func delete(keys: [String]) async throws { throw DiskFull() }
         func deleteAll(kind: RecordKind, typeName: String) async throws { throw DiskFull() }

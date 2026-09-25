@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-25
+
+### Added
+- Design spec for v0.3 queries (`docs/specs/2026-09-25-swiftlocalstorage-v0.3-queries-design.md`).
+- `FetchOptions` (`sort`, `limit`, `offset`) and `StorageSort` (`oldestFirst`, `newestFirst`, `recentlyUpdated`, `leastRecentlyUpdated`, ties broken by insertion order) via `fetch(_:options:)`; sorting and slicing run inside the store so only requested rows are decoded.
+- `page(_:page:pageSize:sort:)` returning `StoragePage` (1-based `page`, `pageSize`, `totalCount`, `totalPages`, `hasNextPage`).
+- `fetch(_:where:options:)` to filter on any DTO field with a Swift closure (in memory, after decoding), then sort and slice.
+- Repository equivalents: `fetchAll(options:)`, `fetch(where:options:)`, `page(_:pageSize:sort:)`.
+- Query tests on both engines (every sort, ties, limit/offset edges, expired exclusion, page math, filters, repository) and query logging tests.
+- README "Queries: sorting, paging, filtering" section; roadmap, security policy and demo README updated for 0.3.
+
+### Fixed
+- SwiftData engine answers `limit: 0` with no rows (SwiftData treats `fetchLimit == 0` as unlimited).
+
+### Changed
+- Demo app: Catalog pages the cache 4 at a time with **Load more** (`page(_:page:pageSize:)`), filters by category (`fetch(_:where:)`), shows the empty state inside the list, and defaults the cache lifetime to 1 minute.
+
 ## [0.2.3] - 2026-09-25
 
 ### Fixed
@@ -60,7 +77,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.0...v0.2.1
