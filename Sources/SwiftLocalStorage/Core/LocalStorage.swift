@@ -22,6 +22,8 @@ public final class LocalStorage: Sendable {
     let hub = ChangeHub()
     /// `typeName → fromVersion → step`, built once from the configuration.
     let migrations: [String: [Int: StorageMigration]]
+    /// Types whose stored index values this instance has verified against a declaration.
+    let indexedSignatures = IndexedSignatures()
 
     /// Opens (or creates) the SwiftData store described by `configuration`.
     ///
@@ -71,12 +73,13 @@ public final class LocalStorage: Sendable {
             RecordWrite(
                 key: StorageKey.entity(typeName: typeName, id: String(describing: value.id)),
                 kind: .entity, typeName: typeName, payload: try encode(value), expiresAt: expiresAt,
-                schemaVersion: StorageKey.version(of: T.self)
+                schemaVersion: StorageKey.version(of: T.self), index: indexValues(for: value)
             )
         }
         var newKeys = try await perform("save \(typeName) ×\(writes.count) (\(writes.byteCount) bytes)", level: .info) {
             try await engine.upsert(writes, now: timestamp)
         }
+        if let first = writes.first { indexedSignatures.wrote(typeName, first.index?.signature) }
         // A key inserted by this batch is `.inserted` the first time it appears, `.updated` after.
         let changes = zip(values, writes).map { value, write -> RawChange in
             newKeys.remove(write.key) != nil ? .inserted(value) : .updated(value)
@@ -103,7 +106,7 @@ public final class LocalStorage: Sendable {
         let records = try await perform("fetch \(typeName) \(options.logDescription)", level: .debug) {
             try await engine.records(
                 kind: .entity, typeName: typeName, now: now(),
-                sort: options.sort, limit: options.limit, offset: options.offset
+                sort: options.sort, limit: options.limit, offset: options.offset, index: nil
             )
         }
         var values: [T] = []
@@ -142,7 +145,7 @@ public final class LocalStorage: Sendable {
     public func count<T: Identifiable & Codable & Sendable>(_ type: T.Type) async throws -> Int {
         let typeName = StorageKey.typeName(of: type)
         return try await perform("count \(typeName)", level: .debug) {
-            try await engine.count(kind: .entity, typeName: typeName, now: now())
+            try await engine.count(kind: .entity, typeName: typeName, now: now(), index: nil)
         }
     }
 
@@ -246,6 +249,87 @@ public final class LocalStorage: Sendable {
         hub.publishToAll(.cleared)
     }
 
+    // MARK: - Indexed queries
+
+    /// Values of `type` matching every condition in `filters` (ANDed), ordered by an indexed field
+    /// when `order` is given (else by `options.sort`), sliced by `options` — all inside the store.
+    ///
+    /// ```swift
+    /// let admins = try await storage.fetch(User.self, matching: [.equals("role", "admin")],
+    ///                                      orderedBy: .descending("lastSeen"))
+    /// ```
+    public func fetch<T: Identifiable & Codable & Sendable & LocalStorageIndexed>(
+        _ type: T.Type, matching filters: [StorageFilter], orderedBy order: StorageIndexOrder? = nil,
+        options: FetchOptions = .default
+    ) async throws -> [T] {
+        let typeName = StorageKey.typeName(of: type)
+        let query = try await indexQuery(type, filters: filters, order: order)
+        let records = try await perform("fetch \(typeName) indexed \(options.logDescription)", level: .debug) {
+            try await engine.records(
+                kind: .entity, typeName: typeName, now: now(),
+                sort: options.sort, limit: options.limit, offset: options.offset, index: query
+            )
+        }
+        var values: [T] = []
+        values.reserveCapacity(records.count)
+        for record in records {
+            values.append(try await decode(type, from: record))
+        }
+        return values
+    }
+
+    /// How many live values of `type` match every condition in `filters`.
+    public func count<T: Identifiable & Codable & Sendable & LocalStorageIndexed>(
+        _ type: T.Type, matching filters: [StorageFilter]
+    ) async throws -> Int {
+        let typeName = StorageKey.typeName(of: type)
+        let query = try await indexQuery(type, filters: filters, order: nil)
+        return try await perform("count \(typeName) indexed", level: .debug) {
+            try await engine.count(kind: .entity, typeName: typeName, now: now(), index: query)
+        }
+    }
+
+    /// Page `page` (1-based) of the values of `type` matching `filters`, with totals.
+    public func page<T: Identifiable & Codable & Sendable & LocalStorageIndexed>(
+        _ type: T.Type, matching filters: [StorageFilter], orderedBy order: StorageIndexOrder? = nil,
+        page: Int, pageSize: Int
+    ) async throws -> StoragePage<T> {
+        precondition(page >= 1, "page is 1-based")
+        precondition(pageSize >= 1, "pageSize must be at least 1")
+        let items = try await fetch(
+            type, matching: filters, orderedBy: order,
+            options: FetchOptions(limit: pageSize, offset: (page - 1) * pageSize)
+        )
+        let total = try await count(type, matching: filters)
+        return StoragePage(items: items, page: page, pageSize: pageSize, totalCount: total)
+    }
+
+    /// Resolves `filters` / `order` against `type`'s declaration, first re-indexing — once per
+    /// type per instance — records saved before the type was indexed or with another declaration.
+    private func indexQuery<T: Identifiable & Codable & Sendable & LocalStorageIndexed>(
+        _ type: T.Type, filters: [StorageFilter], order: StorageIndexOrder?
+    ) async throws -> IndexQuery {
+        let layout = IndexLayout(type)
+        let query = layout.query(filters: filters, order: order)
+        let typeName = StorageKey.typeName(of: type)
+        guard !indexedSignatures.isCurrent(typeName, layout.signature) else { return query }
+
+        let stale = try await perform("check index \(typeName)", level: .debug) {
+            try await engine.staleIndexKeys(typeName: typeName, signature: layout.signature)
+        }
+        for key in stale {
+            guard let record = try await perform("read \(key)", level: .debug, { try await engine.record(forKey: key) }) else {
+                continue
+            }
+            let value = try await decode(type, from: record)
+            try await perform("reindex \(key)", level: .info) {
+                try await engine.setIndex(key: key, values: layout.values(for: value))
+            }
+        }
+        indexedSignatures.markCurrent(typeName, layout.signature)
+        return query
+    }
+
     // MARK: - Migration
 
     /// Upgrades every live stored value of `type` whose version is older than
@@ -260,7 +344,7 @@ public final class LocalStorage: Sendable {
         // ponytail: loads every live record of the type at once; batch it if types get huge.
         let records = try await perform("migrate all \(typeName)", level: .info) {
             try await engine.records(
-                kind: .entity, typeName: typeName, now: now(), sort: .oldestFirst, limit: nil, offset: 0
+                kind: .entity, typeName: typeName, now: now(), sort: .oldestFirst, limit: nil, offset: 0, index: nil
             )
         }
         var upgraded = 0
@@ -375,8 +459,11 @@ public final class LocalStorage: Sendable {
         let upgraded = try migrate(record, to: current)
         let value = try decodePayload(type, upgraded, key: record.key)
         try await perform("migrate \(record.key) v\(record.schemaVersion)→v\(current)", level: .info) {
-            try await engine.rewrite(key: record.key, payload: upgraded, schemaVersion: current)
+            try await engine.rewrite(
+                key: record.key, payload: upgraded, schemaVersion: current, index: indexValues(for: value)
+            )
         }
+        if let index = indexValues(for: value) { indexedSignatures.wrote(record.typeName, index.signature) }
         return value
     }
 
