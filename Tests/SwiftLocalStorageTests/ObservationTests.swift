@@ -202,6 +202,16 @@ struct ObservationTests {
         #expect(lines.lines.filter { $0.contains("limit=10") }.count == 3)  // 10 + 10 + 5
     }
 
+    @Test("updates finishes with the error when the store fails")
+    func liveQueryFailure() async throws {
+        let storage = LocalStorage(configuration: .inMemory, engine: ErrorTests.FailingEngine(), now: { Date() })
+        var results = storage.updates(of: User.self).makeAsyncIterator()
+
+        await #expect {
+            _ = try await results.next()
+        } throws: { ($0 as? LocalStorageError)?.code == .persistenceFailed }
+    }
+
     @Test("repository forwards observation")
     func repository() async throws {
         let storage = try Engine.inMemory.storage()
