@@ -19,7 +19,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 1.0.0 (stable API: every 1.x release is source-compatible; see [Versioning](#versioning))
+- **Version:** 1.0.0 (stable API: every 1.x release is source-compatible; see [Versioning](#versioning)) <!-- x-release-please-version -->
 - **Docs:** DocC catalog in [`Sources/SwiftLocalStorage/SwiftLocalStorage.docc`](Sources/SwiftLocalStorage/SwiftLocalStorage.docc) (a static archive is attached to each release)
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
@@ -146,7 +146,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "1.0.0"),
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "1.0.0"), // x-release-please-version
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),
@@ -205,7 +205,7 @@ Every call is `async`, and every call except the streaming ones `throws` a `Loca
 | Count / exists | `count(T.self)`, `count(T.self, matching:)`, `exists(T.self, id:)` | `count()`, `count(matching:)`, `exists(id:)` |
 | Delete | `delete(T.self, id:)`, `delete([values])`, `deleteAll(T.self)` | `delete(id:)`, `delete(_:)`, `deleteAll()` |
 | Metadata | `metadata(T.self, id:)` → `StorageMetadata?` | `metadata(id:)` |
-| Observe | `changes(of:)`, `updates(of:options:)`, `all(_:batchSize:)` | `changes()`, `updates(options:)`, `all(batchSize:)` |
+| Observe | `changes(of:)`, `updates(of:options:)`, `updates(of:matching:orderedBy:options:)`, `all(_:batchSize:)` | `changes()`, `updates(options:)`, `updates(matching:…)`, `all(batchSize:)` |
 | Key-value | `set(_:forKey:expiration:)`, `get(_:forKey:)`, `remove(forKey:)` | — |
 | Maintenance | `removeExpired()`, `removeAll()`, `migrateAll(T.self)` | — |
 
@@ -366,9 +366,9 @@ Ties, such as records saved in the same batch, are broken by insertion order, so
 stable. Expired records never appear in results, counts or page totals.
 
 > [!NOTE]
-> DTO fields live inside encoded payloads, so `fetch(_:where:)` loads and decodes every live value
-> of the type before filtering. Sorting, `limit`, `offset` and `page` run inside the store and load
-> only the requested rows. For hot filters and sorts on DTO fields, use
+> DTO fields live inside encoded payloads, so `fetch(_:where:)` decodes values in memory, 500 at a
+> time, stopping once it has `offset + limit` matches. Sorting, `limit`, `offset` and `page` run
+> inside the store and load only the requested rows. For hot filters and sorts on DTO fields, use
 > [indexed fields](#indexed-fields).
 
 Repositories have the same calls: `fetchAll(options:)`, `fetch(where:options:)` and
@@ -409,6 +409,8 @@ let page   = try await storage.page(User.self, matching: [.between("age", 18...3
 | `.equals(name, 42)` / `true` / a `Date` | number index equal to the value |
 | `.atLeast(name, value)` / `.atMost(name, value)` | number index ≥ / ≤ the value |
 | `.between(name, lower...upper)` | number index within the range |
+| `.hasPrefix(name, "ad")` | string index starting with the text (case-sensitive; `""` matches any value) |
+| `.oneOf(name, ["a", "b"])` | string index equal to any listed value (an empty list matches nothing) |
 
 - **Missing values:** a record whose indexed value is `nil` never matches a condition on that
   index. It sorts first ascending and last descending, and ties keep insertion order.
@@ -416,8 +418,12 @@ let page   = try await storage.page(User.self, matching: [.between("age", 18...3
   different declaration, are re-indexed automatically on the next indexed query. DTO migrations
   refresh index values too.
 - Closures make computed indexes easy, for example `.string("email") { $0.email.lowercased() }`.
-- Repositories have the same calls: `fetch(matching:orderedBy:options:)`, `count(matching:)` and
-  `page(matching:orderedBy:page:pageSize:)`.
+- **Several conditions on one string index intersect**, so `equals("role", "a")` plus
+  `equals("role", "b")` matches nothing.
+- **Live indexed queries:** `updates(of:matching:orderedBy:options:)` emits now, then reruns the
+  indexed query in the store after each burst of writes.
+- Repositories have the same calls: `fetch(matching:orderedBy:options:)`, `count(matching:)`,
+  `page(matching:orderedBy:page:pageSize:)` and `updates(matching:orderedBy:options:)`.
 
 ---
 
@@ -447,7 +453,9 @@ struct UsersView: View {
 ```
 
 The loop ends when the view disappears, because SwiftUI cancels `.task`. Bursts of writes
-are coalesced into one refetch.
+are coalesced into one refetch. For indexed types,
+`updates(of:matching:orderedBy:options:)` does the same with an in-store filter, so only the
+matching rows are decoded.
 
 **Change feed:** each change as a typed event:
 
@@ -780,13 +788,13 @@ What each call costs, so you can pick the right one for large types:
 | `fetch(_:options:)`, `page(_:page:pageSize:)` | sort and slice in SQLite; decodes only the rows returned |
 | `fetch(_:matching:orderedBy:options:)`, `count(_:matching:)`, `page(_:matching:…)` | filter, sort and slice in SQLite on index slots; decodes only the rows returned |
 | `count(_:)` | a `COUNT` in SQLite; decodes nothing |
-| `fetch(_:where:options:)` | loads and decodes **every** live value of the type, then filters in memory |
+| `fetch(_:where:options:)` | decodes values in memory 500 at a time, stopping at `offset + limit` matches |
 | `all(_:batchSize:)` | one `limit`/`offset` fetch per batch as the loop advances |
 | `save([values])` | encodes on the caller's task, then one transaction |
-| `updates(of:)` | one refetch per burst of writes, not one per write |
+| `updates(of:)`, `updates(of:matching:…)` | one refetch per burst of writes, not one per write |
 | First indexed query of a type | re-indexes stale records once per declaration per `LocalStorage` instance |
 | First read of an old-version record | runs its migration steps once and writes the result back |
-| `migrateAll(_:)` | loads every live record of the type in one pass |
+| `migrateAll(_:)` | walks the type 500 records at a time, rewriting outdated ones |
 
 Encoding and decoding run on the calling task, outside the storage actor, so a large decode
 doesn't block other storage calls. Logging is off by default, and log lines are built only when
@@ -798,8 +806,9 @@ Measured on an Apple M1 Pro (release build, on-disk store, median of 5 runs):
 |---|---:|
 | save 1,000 records (one batch) | 148 ms |
 | fetch all of 1,000 | 33 ms |
-| filter 1,000 by index (`matching:`) | 3.8 ms |
-| filter 1,000 by closure (`where:`) | 33 ms |
+| filter 1,000 by index (`matching:`) | 4.0 ms |
+| filter 1,000 by prefix / any-of | 4.2 ms / 3.9 ms |
+| filter 1,000 by closure (`where:`) | 37 ms |
 | save / fetch a 10 MB payload | 56 ms / 19 ms |
 
 Full table and notes in [docs/benchmarks.md](docs/benchmarks.md). Run them on your own machine with
@@ -907,22 +916,10 @@ struct ArticleRepository: Sendable {
 
     /// Unread articles in a topic, newest first, filtered and sorted in the store.
     func unread(topic: String) -> AsyncThrowingStream<[Article], any Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    for try await _ in articles.updates() {           // re-run on every change
-                        continuation.yield(try await articles.fetch(
-                            matching: [.equals("topic", topic), .equals("isRead", false)],
-                            orderedBy: .descending("publishedAt")
-                        ))
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
+        articles.updates(
+            matching: [.equals("topic", topic), .equals("isRead", false)],
+            orderedBy: .descending("publishedAt")
+        )
     }
 
     func markRead(_ article: Article) async throws {
@@ -997,14 +994,14 @@ open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
 
 ## Known limitations
 
-- **Closure filters run in memory.** `fetch(_:where:)` decodes every live value of the type before
-  filtering. Use [indexed fields](#indexed-fields) for filters and sorts that must scale. Indexed
-  queries support AND only, with up to three indexes per type and no string prefix search.
+- **Closure filters run in memory.** `fetch(_:where:)` decodes values 500 at a time until it has
+  enough matches. Use [indexed fields](#indexed-fields) for filters and sorts that must scale.
+  Indexed queries support AND only (plus `oneOf` within one string index), with up to three
+  indexes per type; string matching is case-sensitive.
 - **Change events are per instance.** Only writes made through the same `LocalStorage` instance are
   observed. Share one instance per store.
-- **Key-value entries aren't observable**, and `updates(of:)` re-runs a plain `fetch(_:options:)`.
-  For a live indexed query, re-run your indexed fetch on each `changes(of:)` event (see the
-  [complete example](#complete-example)).
+- **Key-value entries aren't observable.** Live queries (`updates`) refetch once per burst of
+  writes to the type, even when the write doesn't affect the result.
 - **Migrations go forward only.** An older app build reading a newer record gets `migrationFailed`
   with `storedVersionNewer`.
 - **Apple platforms only**, because SwiftData is Apple-only.
@@ -1062,6 +1059,7 @@ Stored data carries over across every release. Only these releases need code cha
 
 | From → to | What to change |
 |---|---|
+| 1.0 → 1.1 | Nothing required. Two different `equals` on one index now match nothing instead of failing a precondition. |
 | 0.6 → 1.0 | Nothing required. 1.0 freezes the 0.6 API; batch saves are faster. |
 | any → 0.6 | Nothing required. To use indexed fields, adopt `LocalStorageIndexed`; existing records are indexed automatically. |
 | ≤ 0.4 → 0.5 | `LocalStorageError` gained `migrationFailed(key:underlying:)` (and `Code.migrationFailed`). Add a case to exhaustive `switch` statements. |

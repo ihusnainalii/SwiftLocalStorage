@@ -34,4 +34,7 @@ each burst of writes, coalesced into a single refetch:
 }
 ```
 
+For indexed types, ``LocalStorage/updates(of:matching:orderedBy:options:)`` is the same live query
+with an in-store filter (see <doc:IndexedFields>).
+
 Both streams end when the consuming task is cancelled.

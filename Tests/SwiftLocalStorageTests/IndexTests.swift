@@ -273,7 +273,9 @@ struct IndexTests {
         let query = layout.query(
             filters: [.equals("role", "admin"), .between("age", 18...30), .atMost("age", 25)],
             order: .descending("joined"))
-        #expect(query.strings == ["admin", nil, nil])
+        #expect(query.values == [["admin"], nil, nil])
+        #expect(query.prefixes == [nil, nil, nil])
+        #expect(!query.matchesNothing)
         #expect(query.minimums == [nil, 18, nil])
         #expect(query.maximums == [nil, 25, nil])
         #expect(query.order == IndexQuery.Order(slot: 2, isString: false, ascending: false))

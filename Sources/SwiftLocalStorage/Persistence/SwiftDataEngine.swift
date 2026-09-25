@@ -6,8 +6,18 @@ import SwiftData
 @ModelActor
 actor SwiftDataEngine: StorageEngine {
 
+    /// Serialises container creation. Building the versioned schemas and migration plan
+    /// concurrently races inside SwiftData/CoreData on macOS 15 ("model is still editable",
+    /// then a crash), e.g. when several stores open at launch or tests run in parallel.
+    private static let openLock = NSLock()
+
     /// Opens (or creates) the container described by `configuration`.
     static func make(configuration: LocalStorageConfiguration) throws -> SwiftDataEngine {
+        // ponytail: one process-wide lock; opening is a one-off per store, so contention is moot.
+        try openLock.withLock { try open(configuration) }
+    }
+
+    private static func open(_ configuration: LocalStorageConfiguration) throws -> SwiftDataEngine {
         let schema = Schema(versionedSchema: CurrentStorageSchema.self)
         let modelConfiguration = ModelConfiguration(
             configuration.name,
@@ -159,8 +169,7 @@ actor SwiftDataEngine: StorageEngine {
             ))
     }
 
-    /// Live records of one kind + type, narrowed by `index` when given. Unused conditions are
-    /// switched off with captured flags, so one predicate shape covers every query.
+    /// Live records of one kind + type, narrowed by `index` when given.
     private static func livePredicate(
         kind: RecordKind, typeName: String, now: Date, index: IndexQuery?
     ) -> Predicate<StoredRecord> {
@@ -171,34 +180,95 @@ actor SwiftDataEngine: StorageEngine {
                 $0.kind == kindRaw && $0.typeName == typeName && ($0.expiresAt ?? distantFuture) > now
             }
         }
-        // A missing number never satisfies a bound: it's coalesced to the far end of the range.
-        let low = -Double.greatestFiniteMagnitude
-        let high = Double.greatestFiniteMagnitude
-        let s0 = index.strings[0]
-        let s1 = index.strings[1]
-        let s2 = index.strings[2]
-        let hasS0 = s0 != nil
-        let hasS1 = s1 != nil
-        let hasS2 = s2 != nil
-        let min0 = index.minimums[0] ?? low
-        let min1 = index.minimums[1] ?? low
-        let min2 = index.minimums[2] ?? low
-        let hasMin0 = index.minimums[0] != nil
-        let hasMin1 = index.minimums[1] != nil
-        let hasMin2 = index.minimums[2] != nil
-        let max0 = index.maximums[0] ?? high
-        let max1 = index.maximums[1] ?? high
-        let max2 = index.maximums[2] ?? high
-        let hasMax0 = index.maximums[0] != nil
-        let hasMax1 = index.maximums[1] != nil
-        let hasMax2 = index.maximums[2] != nil
-        return #Predicate<StoredRecord> { record in
-            record.kind == kindRaw && record.typeName == typeName && (record.expiresAt ?? distantFuture) > now
-                && (!hasS0 || record.s0 == s0) && (!hasS1 || record.s1 == s1) && (!hasS2 || record.s2 == s2)
-                && (!hasMin0 || (record.n0 ?? low) >= min0) && (!hasMax0 || (record.n0 ?? high) <= max0)
-                && (!hasMin1 || (record.n1 ?? low) >= min1) && (!hasMax1 || (record.n1 ?? high) <= max1)
-                && (!hasMin2 || (record.n2 ?? low) >= min2) && (!hasMax2 || (record.n2 ?? high) <= max2)
+        // Built from expressions rather than `#Predicate`: only the active conditions are included,
+        // which keeps the query small and the type checker out of a combinatorial expression.
+        return Predicate { record in
+            var terms: [any StandardPredicateExpression<Bool>] = [
+                PredicateExpressions.build_Equal(
+                    lhs: PredicateExpressions.build_KeyPath(root: record, keyPath: \.kind),
+                    rhs: PredicateExpressions.build_Arg(kindRaw)),
+                PredicateExpressions.build_Equal(
+                    lhs: PredicateExpressions.build_KeyPath(root: record, keyPath: \.typeName),
+                    rhs: PredicateExpressions.build_Arg(typeName)),
+                PredicateExpressions.build_Comparison(
+                    lhs: PredicateExpressions.build_NilCoalesce(
+                        lhs: PredicateExpressions.build_KeyPath(root: record, keyPath: \.expiresAt),
+                        rhs: PredicateExpressions.build_Arg(distantFuture)),
+                    rhs: PredicateExpressions.build_Arg(now), op: .greaterThan),
+            ]
+            for slot in 0..<IndexValues.slots {
+                terms += stringTerms(
+                    record, stringSlots[slot], values: index.values[slot], prefix: index.prefixes[slot])
+                terms += numberTerms(record, numberSlots[slot], min: index.minimums[slot], max: index.maximums[slot])
+            }
+            return terms.dropFirst().reduce(terms[0], and)
         }
+    }
+
+    private static let stringSlots: [KeyPath<StoredRecord, String?> & Sendable] = [\.s0, \.s1, \.s2]
+    private static let numberSlots: [KeyPath<StoredRecord, Double?> & Sendable] = [\.n0, \.n1, \.n2]
+
+    /// A missing string never matches. Values compare against the optional column directly, and a
+    /// prefix is a binary range `[prefix, prefix + U+10FFFF)`: CoreData can't translate `IN` or
+    /// `BEGINSWITH` over a nil-coalesced column.
+    private static func stringTerms(
+        _ record: PredicateExpressions.Variable<StoredRecord>, _ slot: KeyPath<StoredRecord, String?> & Sendable,
+        values: [String]?, prefix: String?
+    ) -> [any StandardPredicateExpression<Bool>] {
+        let value = PredicateExpressions.build_KeyPath(root: record, keyPath: slot)
+        var terms: [any StandardPredicateExpression<Bool>] = []
+        if let values {
+            terms.append(
+                PredicateExpressions.build_contains(
+                    PredicateExpressions.build_Arg(values.map(Optional.some)), value))
+        }
+        if let prefix {
+            let present = PredicateExpressions.build_NilCoalesce(lhs: value, rhs: PredicateExpressions.build_Arg(""))
+            terms.append(
+                PredicateExpressions.build_NotEqual(lhs: value, rhs: PredicateExpressions.build_NilLiteral()))
+            terms.append(
+                PredicateExpressions.build_Comparison(
+                    lhs: present, rhs: PredicateExpressions.build_Arg(prefix), op: .greaterThanOrEqual))
+            terms.append(
+                PredicateExpressions.build_Comparison(
+                    lhs: present, rhs: PredicateExpressions.build_Arg(prefix + "\u{10FFFF}"), op: .lessThan))
+        }
+        return terms
+    }
+
+    /// A missing number never satisfies a bound: it's coalesced to the far end of the range.
+    private static func numberTerms(
+        _ record: PredicateExpressions.Variable<StoredRecord>, _ slot: KeyPath<StoredRecord, Double?> & Sendable,
+        min: Double?, max: Double?
+    ) -> [any StandardPredicateExpression<Bool>] {
+        let value = PredicateExpressions.build_KeyPath(root: record, keyPath: slot)
+        var terms: [any StandardPredicateExpression<Bool>] = []
+        if let min {
+            terms.append(
+                PredicateExpressions.build_Comparison(
+                    lhs: PredicateExpressions.build_NilCoalesce(
+                        lhs: value, rhs: PredicateExpressions.build_Arg(-Double.greatestFiniteMagnitude)),
+                    rhs: PredicateExpressions.build_Arg(min), op: .greaterThanOrEqual))
+        }
+        if let max {
+            terms.append(
+                PredicateExpressions.build_Comparison(
+                    lhs: PredicateExpressions.build_NilCoalesce(
+                        lhs: value, rhs: PredicateExpressions.build_Arg(Double.greatestFiniteMagnitude)),
+                    rhs: PredicateExpressions.build_Arg(max), op: .lessThanOrEqual))
+        }
+        return terms
+    }
+
+    private static func and(
+        _ lhs: any StandardPredicateExpression<Bool>, _ rhs: any StandardPredicateExpression<Bool>
+    ) -> any StandardPredicateExpression<Bool> {
+        func conjoin<L: StandardPredicateExpression<Bool>, R: StandardPredicateExpression<Bool>>(
+            _ lhs: L, _ rhs: R
+        ) -> any StandardPredicateExpression<Bool> {
+            PredicateExpressions.build_Conjunction(lhs: lhs, rhs: rhs)
+        }
+        return conjoin(lhs, rhs)
     }
 
     private static func sortDescriptors(_ order: IndexQuery.Order) -> [SortDescriptor<StoredRecord>] {

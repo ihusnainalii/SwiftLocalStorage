@@ -95,6 +95,12 @@ extension LocalRepository where Entity: LocalStorageIndexed {
     ) async throws -> StoragePage<Entity> {
         try await storage.page(Entity.self, matching: filters, orderedBy: order, page: page, pageSize: pageSize)
     }
+
+    public func updates(
+        matching filters: [StorageFilter], orderedBy order: StorageIndexOrder? = nil, options: FetchOptions = .default
+    ) -> AsyncThrowingStream<[Entity], any Error> {
+        storage.updates(of: Entity.self, matching: filters, orderedBy: order, options: options)
+    }
 }
 
 extension LocalStorage {

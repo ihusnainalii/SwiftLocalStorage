@@ -77,6 +77,12 @@ _ = try await storage.count(Record.self, matching: [.equals("category", "hot")])
 record(
     "filter 1,000 by index (matching:)",
     try await measure { _ = try await storage.fetch(Record.self, matching: [.equals("category", "hot")]) })
+record(
+    "filter 1,000 by prefix (hasPrefix)",
+    try await measure { _ = try await storage.fetch(Record.self, matching: [.hasPrefix("category", "ho")]) })
+record(
+    "filter 1,000 by any-of (oneOf)",
+    try await measure { _ = try await storage.fetch(Record.self, matching: [.oneOf("category", ["hot", "warm"])]) })
 record("filter 1,000 by closure (where:)", try await measure { _ = try await storage.fetch(Record.self, where: isHot) })
 
 try await storage.removeAll()

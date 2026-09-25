@@ -19,7 +19,7 @@ jobs:
     name: Lint & format
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: SwiftLint
         run: |
           brew list swiftlint >/dev/null 2>&1 || brew install swiftlint
@@ -33,8 +33,8 @@ jobs:
     name: Build (SPM, -warnings-as-errors)
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
         with:
           path: .build
           key: spm-build-${{ runner.os }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
@@ -46,8 +46,8 @@ jobs:
     runs-on: macos-15
     needs: build
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
         with:
           path: .build
           key: spm-build-${{ runner.os }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
@@ -58,13 +58,13 @@ jobs:
       - name: Coverage to job summary
         run: cat .build/coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: .build/coverage/coverage.lcov
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: .build/coverage/
@@ -75,7 +75,7 @@ jobs:
     runs-on: macos-15
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: ThreadSanitizer
         run: swift test --sanitize=thread
       - name: AddressSanitizer
@@ -86,7 +86,7 @@ jobs:
     name: Build for iOS Simulator
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: xcodebuild (library)
         run: >
           xcodebuild build
@@ -108,7 +108,7 @@ jobs:
       matrix:
         platform: [tvOS, watchOS, visionOS]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: >
           xcodebuild build
           -scheme SwiftLocalStorage
@@ -121,7 +121,7 @@ jobs:
     name: DocC build
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: >
           xcodebuild docbuild
           -scheme SwiftLocalStorage
@@ -134,7 +134,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: diagnose-api-breaking-changes
@@ -148,7 +148,7 @@ jobs:
     name: Benchmarks build
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: swift build -c release --product SwiftLocalStorageBenchmarks -Xswiftc -warnings-as-errors
 
   # Single required status for branch protection.

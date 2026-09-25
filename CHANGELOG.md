@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Added
+- Design spec for 1.1, the query track (`docs/specs/2026-09-25-swiftlocalstorage-v1.1-queries-design.md`).
+- `StorageFilter.hasPrefix(_:_:)` and `StorageFilter.oneOf(_:_:)` for string indexes, evaluated in the store. String conditions on one index intersect; a contradictory set (such as two different `equals`) now matches nothing instead of failing a precondition.
+- `updates(of:matching:orderedBy:options:)`: live queries over indexed filters (emit now, then one in-store refetch per burst of writes), and `LocalRepository.updates(matching:orderedBy:options:)`.
+- Benchmarks: "filter 1,000 by prefix" and "filter 1,000 by any-of" rows; `docs/benchmarks.md` refreshed for 1.1.
+
+### Changed
+- The SwiftData engine composes indexed queries from only the active conditions (built with `PredicateExpressions`) instead of one `#Predicate` with switched-off terms.
+- `fetch(_:where:options:)` and `migrateAll(_:)` walk the type 500 records at a time instead of decoding every record at once; `where:` stops as soon as `offset + limit` matches are found. Results are unchanged. With the update-ordered sorts, a value updated during the walk can be seen twice or missed. Observation APIs moved to `LocalStorage+Observation.swift` (no API change).
+- CI: GitHub Actions moved to their Node 24 majors (`checkout@v7`, `cache@v6`, `upload-artifact@v7`, `codecov-action@v7`, `release-please-action@v5`).
+- README (filters table, live indexed queries, complete example now uses `updates(matching:orderedBy:)`, performance and limitations, upgrading row), DocC (*Indexed Fields*, *Observing Changes*, *Querying*) and ROADMAP updated for 1.1; release-please now also bumps the version shown in the README.
+
+### Fixed
+- Opening several stores at the same time could crash on macOS 15 (SwiftData raced while building the versioned schemas; seen as "model is still editable" followed by SIGABRT/SEGV under parallel tests). Container creation is now serialised process-wide.
+
 ## [1.0.0] - 2026-09-25
 
 The API is now stable: every 1.x release stays source-compatible with this one.

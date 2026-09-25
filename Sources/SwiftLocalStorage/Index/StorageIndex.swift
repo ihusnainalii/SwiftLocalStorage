@@ -56,7 +56,8 @@ public struct StorageIndex<Root>: Sendable {
 /// One condition on an indexed field; conditions passed together are ANDed.
 public struct StorageFilter: Sendable, Hashable {
     enum Condition: Sendable, Hashable {
-        case stringEquals(String)
+        case stringIn([String])
+        case stringPrefix(String)
         case numberRange(min: Double?, max: Double?)
     }
 
@@ -64,7 +65,18 @@ public struct StorageFilter: Sendable, Hashable {
     let condition: Condition
 
     public static func equals(_ name: String, _ value: String) -> Self {
-        Self(name: name, condition: .stringEquals(value))
+        Self(name: name, condition: .stringIn([value]))
+    }
+
+    /// A string index that starts with `prefix` (case- and diacritic-sensitive, like ``equals(_:_:)-(String,String)``).
+    /// An empty prefix matches every record that has a value.
+    public static func hasPrefix(_ name: String, _ prefix: String) -> Self {
+        Self(name: name, condition: .stringPrefix(prefix))
+    }
+
+    /// A string index equal to any of `values`. An empty list matches nothing.
+    public static func oneOf(_ name: String, _ values: [String]) -> Self {
+        Self(name: name, condition: .stringIn(values))
     }
 
     public static func equals<V: StorageIndexNumber>(_ name: String, _ value: V) -> Self {
@@ -113,17 +125,26 @@ struct IndexQuery: Sendable, Equatable {
         var ascending: Bool
     }
 
-    var strings: [String?] = Array(repeating: nil, count: IndexValues.slots)
+    /// Per string slot: the allowed values (`equals` / `oneOf`, intersected) and a required prefix.
+    var values: [[String]?] = Array(repeating: nil, count: IndexValues.slots)
+    var prefixes: [String?] = Array(repeating: nil, count: IndexValues.slots)
+    /// The conditions contradict each other (or list no values): nothing can match.
+    var matchesNothing = false
     var minimums: [Double?] = Array(repeating: nil, count: IndexValues.slots)
     var maximums: [Double?] = Array(repeating: nil, count: IndexValues.slots)
     var order: Order?
 
     /// Whether `record` satisfies every condition — the in-memory engine's evaluator.
-    func matches(_ values: IndexValues?) -> Bool {
+    func matches(_ record: IndexValues?) -> Bool {
+        if matchesNothing { return false }
         for slot in 0..<IndexValues.slots {
-            if let string = strings[slot], values?.strings[slot] != string { return false }
+            if values[slot] != nil || prefixes[slot] != nil {
+                guard let string = record?.strings[slot] else { return false }
+                if let allowed = values[slot], !allowed.contains(string) { return false }
+                if let prefix = prefixes[slot], !string.starts(with: prefix) { return false }
+            }
             if minimums[slot] != nil || maximums[slot] != nil {
-                guard let number = values?.numbers[slot] else { return false }
+                guard let number = record?.numbers[slot] else { return false }
                 if let min = minimums[slot], number < min { return false }
                 if let max = maximums[slot], number > max { return false }
             }
@@ -163,11 +184,21 @@ struct IndexLayout<Root> {
         for filter in filters {
             let (slot, kind) = resolve(filter.name)
             switch filter.condition {
-            case .stringEquals(let value):
+            case .stringIn(let values):
                 precondition(kind == .string, "\"\(filter.name)\" is a number index; filter it with a number")
-                precondition(
-                    query.strings[slot].map { $0 == value } ?? true, "Contradictory filters on \"\(filter.name)\"")
-                query.strings[slot] = value
+                // Several value conditions on one index intersect.
+                let allowed = query.values[slot].map { current in current.filter(values.contains) } ?? values
+                query.values[slot] = Array(Set(allowed)).sorted()
+                if allowed.isEmpty { query.matchesNothing = true }
+            case .stringPrefix(let prefix):
+                precondition(kind == .string, "\"\(filter.name)\" is a number index; filter it with a number")
+                // Two prefixes are compatible when one extends the other; the longer one wins.
+                let current = query.prefixes[slot] ?? ""
+                if prefix.starts(with: current) {
+                    query.prefixes[slot] = prefix
+                } else if !current.starts(with: prefix) {
+                    query.matchesNothing = true
+                }
             case .numberRange(let min, let max):
                 precondition(kind == .number, "\"\(filter.name)\" is a string index; filter it with a string")
                 // Several conditions on one index narrow its range.

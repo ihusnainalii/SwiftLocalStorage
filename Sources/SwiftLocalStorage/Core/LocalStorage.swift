@@ -121,15 +121,52 @@ public final class LocalStorage: Sendable {
 
     /// Stored values of `type` matching `isIncluded`, then sorted and sliced by `options`.
     ///
-    /// DTO fields live inside encoded payloads, so the filter runs in memory: every live value of
-    /// `type` is loaded and decoded first. Prefer ``fetch(_:options:)`` when you don't need a filter.
+    /// DTO fields live inside encoded payloads, so the filter runs in memory: values are loaded
+    /// and decoded 500 at a time in `options.sort` order, stopping as soon as `offset + limit`
+    /// matches are found. For hot queries on large types, filter on an index with
+    /// ``fetch(_:matching:orderedBy:options:)`` instead.
+    ///
+    /// With `.recentlyUpdated` / `.leastRecentlyUpdated`, a value updated by another task during
+    /// the walk can move across a batch boundary and be seen twice or missed.
     public func fetch<T: Identifiable & Codable & Sendable>(
         _ type: T.Type, where isIncluded: (T) throws -> Bool, options: FetchOptions = .default
     ) async throws -> [T] {
-        // ponytail: decode-all + in-memory filter; add stored-field indexes if large types need it.
-        let all = try await fetch(type, options: FetchOptions(sort: options.sort))
-        let sliced = try all.filter(isIncluded).dropFirst(options.offset)
-        return Array(options.limit.map { sliced.prefix($0) } ?? sliced)
+        let wanted = options.limit.map { options.offset + $0 }
+        if wanted == 0 { return [] }
+        var matches: [T] = []
+        try await walk(StorageKey.typeName(of: type), sort: options.sort) { batch in
+            for record in batch {
+                let value = try await decode(type, from: record)
+                guard try isIncluded(value) else { continue }
+                matches.append(value)
+                if matches.count == wanted { return false }
+            }
+            return true
+        }
+        return Array(matches.dropFirst(options.offset))
+    }
+
+    /// Records per store call in a batched walk (`fetch(_:where:options:)`, `migrateAll(_:)`).
+    static let walkBatchSize = 500
+
+    /// Visits the live records of `typeName` in `sort` order, ``walkBatchSize`` at a time, until
+    /// `body` returns `false` or the records run out. The whole walk uses one `now`, so a record
+    /// expiring mid-walk can't be purged and shift the offsets.
+    private func walk(
+        _ typeName: String, sort: StorageSort, _ body: ([RecordSnapshot]) async throws -> Bool
+    ) async throws {
+        let start = now()
+        var offset = 0
+        while true {
+            let batch = try await perform("fetch \(typeName) batch at \(offset)", level: .debug) {
+                try await engine.records(
+                    kind: .entity, typeName: typeName, now: start,
+                    sort: sort, limit: Self.walkBatchSize, offset: offset, index: nil
+                )
+            }
+            guard try await body(batch), batch.count == Self.walkBatchSize else { return }
+            offset += batch.count
+        }
     }
 
     /// Page `page` (1-based) of `pageSize` values of `type`, with the totals for paging UI.
@@ -268,6 +305,7 @@ public final class LocalStorage: Sendable {
     ) async throws -> [T] {
         let typeName = StorageKey.typeName(of: type)
         let query = try await indexQuery(type, filters: filters, order: order)
+        if query.matchesNothing { return [] }
         let records = try await perform("fetch \(typeName) indexed \(options.logDescription)", level: .debug) {
             try await engine.records(
                 kind: .entity, typeName: typeName, now: now(),
@@ -288,6 +326,7 @@ public final class LocalStorage: Sendable {
     ) async throws -> Int {
         let typeName = StorageKey.typeName(of: type)
         let query = try await indexQuery(type, filters: filters, order: nil)
+        if query.matchesNothing { return 0 }
         return try await perform("count \(typeName) indexed", level: .debug) {
             try await engine.count(kind: .entity, typeName: typeName, now: now(), index: query)
         }
@@ -346,84 +385,18 @@ public final class LocalStorage: Sendable {
     public func migrateAll<T: Identifiable & Codable & Sendable>(_ type: T.Type) async throws -> Int {
         let typeName = StorageKey.typeName(of: type)
         let current = StorageKey.version(of: type)
-        // ponytail: loads every live record of the type at once; batch it if types get huge.
-        let records = try await perform("migrate all \(typeName)", level: .info) {
-            try await engine.records(
-                kind: .entity, typeName: typeName, now: now(), sort: .oldestFirst, limit: nil, offset: 0, index: nil
-            )
-        }
+        log(.info, "migrate all \(typeName)")
         var upgraded = 0
-        for record in records where record.schemaVersion != current {
-            _ = try await decode(type, from: record)
-            upgraded += 1
+        // Walks in creation order; a write-back keeps a record's creation time and sequence, so
+        // batches never shift under it.
+        try await walk(typeName, sort: .oldestFirst) { batch in
+            for record in batch where record.schemaVersion != current {
+                _ = try await decode(type, from: record)
+                upgraded += 1
+            }
+            return true
         }
         return upgraded
-    }
-
-    // MARK: - Observation
-
-    /// Every change to stored values of `type` made through this storage, as it happens.
-    ///
-    /// ```swift
-    /// for await change in storage.changes(of: User.self) { ... }
-    /// ```
-    ///
-    /// Events arrive after each write commits. The stream buffers every event and ends when the
-    /// consuming task is cancelled.
-    public func changes<T: Identifiable & Codable & Sendable>(of type: T.Type) -> AsyncStream<StorageChange<T>> {
-        changes(of: type, bufferingPolicy: .unbounded)
-    }
-
-    /// The current values of `type` (sorted and sliced by `options`), then the values again after
-    /// every change to the type — a live query for SwiftUI:
-    ///
-    /// ```swift
-    /// .task {
-    ///     for try await users in storage.updates(of: User.self) { self.users = users }
-    /// }
-    /// ```
-    ///
-    /// Bursts of writes are coalesced into one refetch. If the consumer falls behind, it receives
-    /// the newest result.
-    public func updates<T: Identifiable & Codable & Sendable>(
-        of type: T.Type, options: FetchOptions = .default
-    ) -> AsyncThrowingStream<[T], any Error> {
-        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            // Subscribe before the first fetch so no change can slip between the two.
-            let changes = self.changes(of: type, bufferingPolicy: .bufferingNewest(1))
-            let task = Task {
-                do {
-                    continuation.yield(try await self.fetch(type, options: options))
-                    for await _ in changes {
-                        continuation.yield(try await self.fetch(type, options: options))
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
-    }
-
-    /// Every stored value of `type`, oldest first, loaded `batchSize` at a time as the loop
-    /// advances, so large types are never fully in memory.
-    public func all<T: Identifiable & Codable & Sendable>(_ type: T.Type, batchSize: Int = 100) -> StorageSequence<T> {
-        precondition(batchSize >= 1, "batchSize must be at least 1")
-        return StorageSequence(storage: self, batchSize: batchSize)
-    }
-
-    func changes<T: Identifiable & Codable & Sendable>(
-        of type: T.Type, bufferingPolicy: AsyncStream<StorageChange<T>>.Continuation.BufferingPolicy
-    ) -> AsyncStream<StorageChange<T>> {
-        let typeName = StorageKey.typeName(of: type)
-        let hub = hub
-        return AsyncStream(bufferingPolicy: bufferingPolicy) { continuation in
-            let token = hub.subscribe(typeName: typeName) { raw in
-                if let change = StorageChange<T>(raw) { continuation.yield(change) }
-            }
-            continuation.onTermination = { _ in hub.unsubscribe(typeName: typeName, token: token) }
-        }
     }
 
     // MARK: - Internals

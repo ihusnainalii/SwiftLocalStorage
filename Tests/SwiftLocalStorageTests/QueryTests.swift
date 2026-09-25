@@ -149,4 +149,22 @@ struct QueryTests {
         #expect(FetchOptions.default == FetchOptions(sort: .oldestFirst, limit: nil, offset: 0))
         #expect(StorageSort.allCases.count == 4)
     }
+
+    @Test("closure filters span batch boundaries with sort, offset and limit", arguments: Engine.allCases)
+    func filterAcrossBatches(engine: Engine) async throws {
+        struct Numbered: Codable, Identifiable, Sendable { let id: Int }
+        let storage = try engine.storage()
+        try await storage.save((0..<1_200).map(Numbered.init))
+
+        let all = try await storage.fetch(Numbered.self, options: FetchOptions(sort: .newestFirst))
+        let expected = Array(all.filter { $0.id.isMultiple(of: 2) }.dropFirst(250).prefix(400)).map(\.id)
+        let filtered = try await storage.fetch(
+            Numbered.self, where: { $0.id.isMultiple(of: 2) },
+            options: FetchOptions(sort: .newestFirst, limit: 400, offset: 250))
+
+        #expect(filtered.map(\.id) == expected)
+        #expect(filtered.count == 350)  // 600 even ids, minus the 250 skipped
+        #expect(try await storage.fetch(Numbered.self, where: { $0.id >= 1_190 }).count == 10)
+        #expect(try await storage.fetch(Numbered.self, where: { _ in true }, options: FetchOptions(limit: 0)).isEmpty)
+    }
 }
