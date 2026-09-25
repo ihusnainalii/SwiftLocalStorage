@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `all(_:batchSize:)` → `StorageSequence<T>`: iterate a large type oldest first, loading `batchSize` records per step.
 - Repository equivalents: `changes()`, `updates(options:)`, `all(batchSize:)`.
 - Observation tests on both engines: event kinds and order, stored values on delete, type isolation, no events on failure, unsubscribe on cancel/release, live-query re-emit and coalescing, batched iteration.
+- README "Observation and SwiftUI" section (live query in `.task`, change-feed event table, batched iteration); roadmap, security policy and demo README updated for 0.4.
 
 ### Changed
 - Internal: `StorageEngine.upsert` reports inserted keys so saves are classified as inserted/updated without extra reads; deletes read the stored value only when the type is observed.
