@@ -41,6 +41,19 @@ struct LoggingTests {
         #expect(!text.contains("hunter2-value"))
     }
 
+    @Test("queries log their options at debug level")
+    func queryLogging() async throws {
+        let logger = CapturingLogger()
+        let storage = storage(level: .debug, logger: logger)
+
+        _ = try await storage.fetch(User.self, options: FetchOptions(sort: .newestFirst, limit: 5, offset: 10))
+        _ = try await storage.fetch(User.self)
+
+        let lines = logger.lines.map(\.0)
+        #expect(lines.contains { $0.contains("sort=newestFirst offset=10 limit=5") })
+        #expect(lines.contains { $0.contains("sort=oldestFirst offset=0") && !$0.contains("limit") })
+    }
+
     @Test("the level filters lines")
     func filtering() async throws {
         let logger = CapturingLogger()
