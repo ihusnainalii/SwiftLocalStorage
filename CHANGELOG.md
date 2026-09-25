@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `LocalStorageIndexed`: declare up to three indexed fields per type (`StorageIndex.string` / `.number` over `Int`, `Double`, `Float`, `Date`, `Bool`, …), stored next to each record.
 - `fetch(_:matching:orderedBy:options:)`, `count(_:matching:)` and `page(_:matching:orderedBy:page:pageSize:)` with `StorageFilter` (`equals`, `atLeast`, `atMost`, `between`; ANDed) and `StorageIndexOrder`, all evaluated inside the store; repository equivalents.
 - Automatic re-indexing: records saved before a type was indexed, or under a different declaration, are re-indexed on the next indexed query (tracked by a per-record index signature); DTO migration write-backs refresh index values.
+- Index tests on both engines: string/number/Bool/Date/Double equality, ranges, ANDed and narrowed conditions, missing values, ordering with ties and nils, limit/offset/count/page, expiry, updates, re-indexing (unindexed records, changed and alternating declarations), migration write-back, repository; plus a live-query failure test.
 
 ### Changed
 - Internal SwiftData schema V3 (nullable index slots + signature) with a lightweight V2 → V3 stage; containers now open with a single `CurrentStorageSchema` alias shared with `StoredRecord`, so the two cannot drift.
