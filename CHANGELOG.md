@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Added
+- Design spec for v0.6 indexed fields (`docs/specs/2026-09-25-swiftlocalstorage-v0.6-indexes-design.md`).
+
 ## [0.5.0] - 2026-09-25
 
 ### Added
