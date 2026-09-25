@@ -103,6 +103,10 @@ Encoding happens in `LocalStorage`, outside the actor, so the engine never sees 
 Registered through `StorageSchemaV1: VersionedSchema` and `StorageMigrationPlan` (no stages yet),
 so future stored-record changes are migrations, not breaking changes.
 
+> **Amendment (v0.2.3):** schema V2 adds `sequence: Int` (insertion counter, default `0`) so records
+> saved in one batch, which share a `createdAt`, keep insertion order. V1 stores upgrade through a
+> lightweight `MigrationStage` (V1 → V2).
+
 ## 6. Configuration
 
 ```swift

@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.2.2 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.2.3 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -191,11 +191,12 @@ try await storage.delete(Product.self, id: 42)
 │ (@ModelActor)           │        │ (test double, SPI)       │
 └────────────┬────────────┘        └──────────────────────────┘
              ▼
-  ModelContainer ── StoredRecord (@Model, schema V1)
+  ModelContainer ── StoredRecord (@Model, schema V2, migrates from V1)
 ```
 
 - **One envelope table.** Every value is a `StoredRecord` row: a unique `key`, a `kind`, the type
-  name, the encoded `payload`, a `schemaVersion`, and `createdAt` / `updatedAt` / `expiresAt`.
+  name, the encoded `payload`, a `schemaVersion`, `createdAt` / `updatedAt` / `expiresAt`, and an
+  insertion `sequence` that keeps same-instant records in the order they were saved.
   Adding a new DTO type never changes the SwiftData schema.
 - **Encoding happens outside the actor.** `LocalStorage` encodes and decodes; the engine only moves
   bytes. That keeps the actor's critical section short and the engine free of generics.

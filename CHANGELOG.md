@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-25
+
+### Fixed
+- SwiftData engine: `fetch(_:)` returned records saved in the same batch (same `createdAt`) in random order. Records now carry an insertion `sequence` used as a tiebreaker, matching the in-memory engine and the documented insertion order.
+
+### Changed
+- Internal SwiftData schema V2 (adds `StoredRecord.sequence`); existing V1 stores upgrade automatically through a lightweight migration stage. No public API change.
+
+### Added
+- Regression tests: 50-record batch ordering on both engines, and a migration test that writes a real V1 store to disk and reopens it with the current schema.
+
 ## [0.2.2] - 2026-09-25
 
 ### Added
@@ -49,7 +60,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.1.0...v0.2.0
