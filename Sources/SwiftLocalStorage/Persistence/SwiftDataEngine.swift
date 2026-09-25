@@ -44,12 +44,13 @@ actor SwiftDataEngine: StorageEngine {
                     existing.kind = write.kind.rawValue
                     existing.typeName = write.typeName
                     existing.payload = write.payload
+                    existing.schemaVersion = write.schemaVersion
                     existing.updatedAt = now
                     existing.expiresAt = write.expiresAt
                 } else {
                     modelContext.insert(StoredRecord(
                         key: write.key, kind: write.kind.rawValue, typeName: write.typeName,
-                        payload: write.payload, schemaVersion: 1,
+                        payload: write.payload, schemaVersion: write.schemaVersion,
                         createdAt: now, updatedAt: now, expiresAt: write.expiresAt,
                         sequence: try nextSequence()
                     ))
@@ -61,6 +62,18 @@ actor SwiftDataEngine: StorageEngine {
         } catch {
             modelContext.rollback()
             lastSequence = sequenceBeforeBatch
+            throw error
+        }
+    }
+
+    func rewrite(key: String, payload: Data, schemaVersion: Int) async throws {
+        guard let model = try model(forKey: key) else { return }
+        model.payload = payload
+        model.schemaVersion = schemaVersion
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
             throw error
         }
     }

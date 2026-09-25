@@ -16,10 +16,10 @@ import Foundation
 
     /// Stores raw bytes under an entity key for `typeName` / `id`, bypassing encoding.
     @_spi(SwiftLocalStorageTesting) public func insertRaw(
-        _ payload: Data, typeName: String, id: String, at now: Date = Date()
+        _ payload: Data, typeName: String, id: String, version: Int = 1, at now: Date = Date()
     ) {
         let key = StorageKey.entity(typeName: typeName, id: id)
-        store(RecordWrite(key: key, kind: .entity, typeName: typeName, payload: payload), now: now)
+        store(RecordWrite(key: key, kind: .entity, typeName: typeName, payload: payload, schemaVersion: version), now: now)
     }
 
     func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> {
@@ -29,6 +29,11 @@ import Foundation
             store(write, now: now)
         }
         return inserted
+    }
+
+    func rewrite(key: String, payload: Data, schemaVersion: Int) async throws {
+        rows[key]?.payload = payload
+        rows[key]?.schemaVersion = schemaVersion
     }
 
     func record(forKey key: String) async throws -> RecordSnapshot? {
@@ -85,7 +90,7 @@ import Foundation
         }
         rows[write.key] = RecordSnapshot(
             key: write.key, kind: write.kind, typeName: write.typeName, payload: write.payload,
-            schemaVersion: 1, createdAt: createdAt, updatedAt: now, expiresAt: write.expiresAt
+            schemaVersion: write.schemaVersion, createdAt: createdAt, updatedAt: now, expiresAt: write.expiresAt
         )
     }
 
