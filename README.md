@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.2.1 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.2.2 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -45,6 +45,7 @@
 - [Testing and mocking](#testing-and-mocking)
 - [Thread safety](#thread-safety)
 - [Using it with SwiftNetworkKit](#using-it-with-swiftnetworkkit)
+- [Demo app](#demo-app)
 - [Best practices](#best-practices)
 - [Known limitations](#known-limitations)
 - [FAQ](#faq)
@@ -544,6 +545,20 @@ struct UserRepository: Sendable {
 
 Network-first, stale-while-revalidate and other policies follow the same shape. A generic cached
 repository is a candidate for a future companion package; see the [roadmap](ROADMAP.md).
+
+---
+
+## Demo app
+
+[`Examples/SwiftLocalStorageDemo`](Examples/SwiftLocalStorageDemo) is a complete SwiftUI iOS app
+built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with a live expiry
+countdown, **Notes** (a CRUD repository), **Settings** (key-value) and an **Inspector** (counts,
+`removeExpired()`, and the live storage log). The Domain layer never imports the package, and its
+tests use an in-memory store with an injected clock.
+
+```bash
+open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
+```
 
 ---
 

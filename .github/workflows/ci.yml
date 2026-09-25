@@ -30,3 +30,14 @@ jobs:
         if: always()
         run: cat .build/coverage/summary.md >> "$GITHUB_STEP_SUMMARY" || true
       - run: swift test --sanitize=thread
+
+  demo:
+    name: Demo app (build + test)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: xcodebuild test
+        run: |
+          xcodebuild -project Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj \
+            -scheme SwiftLocalStorageDemo \
+            -destination 'platform=iOS Simulator,OS=latest,name=iPhone 16' test
