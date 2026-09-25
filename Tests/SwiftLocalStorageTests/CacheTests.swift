@@ -5,13 +5,15 @@ import Testing
 @Suite("Cache expiration & metadata")
 struct CacheTests {
 
-    @Test("expiration resolves to an absolute date", arguments: [
-        (CacheExpiration.never, nil),
-        (.seconds(30), 30),
-        (.minutes(10), 600),
-        (.hours(1), 3_600),
-        (.days(2), 172_800),
-    ] as [(CacheExpiration, TimeInterval?)])
+    @Test(
+        "expiration resolves to an absolute date",
+        arguments: [
+            (CacheExpiration.never, nil),
+            (.seconds(30), 30),
+            (.minutes(10), 600),
+            (.hours(1), 3_600),
+            (.days(2), 172_800),
+        ] as [(CacheExpiration, TimeInterval?)])
     func resolves(expiration: CacheExpiration, offset: TimeInterval?) {
         let now = Date(timeIntervalSinceReferenceDate: 0)
         #expect(expiration.expiresAt(from: now) == offset.map { now + $0 })
@@ -43,7 +45,8 @@ struct CacheTests {
     func listingsSkipExpired() async throws {
         let clock = TestDateClock()
         let storage = try makeStorage(clock: clock)
-        let fresh = User.make("Fresh"), stale = User.make("Stale")
+        let fresh = User.make("Fresh")
+        let stale = User.make("Stale")
         try await storage.save(fresh)
         try await storage.save(stale, expiration: .seconds(5))
 
@@ -73,7 +76,7 @@ struct CacheTests {
         let user = User.make()
         try await storage.save(user, expiration: .seconds(10))
         clock.advance(by: 8)
-        try await storage.save(user)          // now .never
+        try await storage.save(user)  // now .never
 
         clock.advance(by: 1_000)
 

@@ -118,11 +118,15 @@ struct IndexTests {
     func slicing(engine: Engine) async throws {
         let storage = try await seeded(engine)
 
-        #expect(try await ids(storage, [.atMost("age", 31)], .ascending("age"), FetchOptions(limit: 2, offset: 1)) == [2, 5])
+        #expect(
+            try await ids(storage, [.atMost("age", 31)], .ascending("age"), FetchOptions(limit: 2, offset: 1)) == [
+                2, 5,
+            ])
         #expect(try await storage.count(Member.self, matching: [.atLeast("age", 25)]) == 4)
         #expect(try await storage.count(Member.self, matching: []) == 5)
 
-        let page = try await storage.page(Member.self, matching: [.atLeast("age", 25)], orderedBy: .descending("age"), page: 2, pageSize: 3)
+        let page = try await storage.page(
+            Member.self, matching: [.atLeast("age", 25)], orderedBy: .descending("age"), page: 2, pageSize: 3)
         #expect(page.items.map(\.id) == [5])
         #expect((page.totalCount, page.totalPages, page.hasNextPage) == (4, 2, false))
     }
@@ -155,7 +159,9 @@ struct IndexTests {
     @Test("records saved before the type was indexed are re-indexed on the first query", arguments: Engine.allCases)
     func reindexUnindexed(engine: Engine) async throws {
         let storage = try engine.storage()
-        try await storage.save([PlainMember(id: 1, role: "admin", age: 40), PlainMember(id: 2, role: "member", age: 20)])
+        try await storage.save([
+            PlainMember(id: 1, role: "admin", age: 40), PlainMember(id: 2, role: "member", age: 20),
+        ])
 
         #expect(try await ids(storage, [.equals("role", "admin")]) == [1])
         #expect(try await ids(storage, [], .descending("age")) == [1, 2])
@@ -164,7 +170,7 @@ struct IndexTests {
     @Test("changing the declaration re-indexes stale records", arguments: Engine.allCases)
     func reindexChangedDeclaration(engine: Engine) async throws {
         let storage = try await seeded(engine)
-        #expect(try await ids(storage, [.equals("role", "admin")]) == [1, 3])       // Member layout
+        #expect(try await ids(storage, [.equals("role", "admin")]) == [1, 3])  // Member layout
 
         let olderThan30 = try await storage.fetch(ReindexedMember.self, matching: [.atLeast("age", 30)])
 
@@ -174,7 +180,7 @@ struct IndexTests {
     @Test("alternating declarations and unindexed saves after a check stay correct", arguments: Engine.allCases)
     func staleAfterCheck(engine: Engine) async throws {
         let storage = try await seeded(engine)
-        #expect(try await ids(storage, [.equals("role", "admin")]) == [1, 3])           // checked as Member
+        #expect(try await ids(storage, [.equals("role", "admin")]) == [1, 3])  // checked as Member
         #expect(try await storage.fetch(ReindexedMember.self, matching: [.atLeast("age", 30)]).map(\.id) == [1, 3])
 
         // Back to Member: its records were re-indexed with the other declaration meanwhile.
@@ -206,7 +212,9 @@ struct IndexTests {
 
     @Test("a DTO migration write-back stores fresh index values")
     func migrationReindexes() async throws {
-        struct IndexedPerson: Codable, Identifiable, Sendable, LocalStorageNaming, LocalStorageVersioned, LocalStorageIndexed {
+        struct IndexedPerson: Codable, Identifiable, Sendable, LocalStorageNaming, LocalStorageVersioned,
+            LocalStorageIndexed
+        {
             static var storageTypeName: String { "Person" }
             static var storageVersion: Int { 2 }
             static var storageIndexes: [StorageIndex<IndexedPerson>] { [.string("fullName") { $0.fullName }] }
@@ -216,7 +224,9 @@ struct IndexTests {
         let engine = InMemoryStorageEngine()
         let storage = LocalStorage(
             configuration: .init(migrations: [
-                StorageMigration(IndexedPerson.self, from: 1) { (old: PersonV1) in PersonV2(id: old.id, fullName: old.name) },
+                StorageMigration(IndexedPerson.self, from: 1) { (old: PersonV1) in
+                    PersonV2(id: old.id, fullName: old.name)
+                }
             ]),
             engine: engine
         )
@@ -224,7 +234,7 @@ struct IndexTests {
         let signature = IndexLayout(IndexedPerson.self).signature
         #expect(try await engine.staleIndexKeys(typeName: "Person", signature: signature).count == 1)
 
-        _ = try await storage.fetch(IndexedPerson.self, id: 1)                    // migrates + writes back
+        _ = try await storage.fetch(IndexedPerson.self, id: 1)  // migrates + writes back
 
         #expect(try await engine.staleIndexKeys(typeName: "Person", signature: signature).isEmpty)
         #expect(try await storage.fetch(IndexedPerson.self, matching: [.equals("fullName", "Ada")]).map(\.id) == [1])
@@ -235,9 +245,14 @@ struct IndexTests {
         let storage = try await seeded(.inMemory)
         let members = storage.repository(Member.self)
 
-        #expect(try await members.fetch(matching: [.equals("role", "admin")], orderedBy: .descending("age")).map(\.id) == [1, 3])
+        #expect(
+            try await members.fetch(matching: [.equals("role", "admin")], orderedBy: .descending("age")).map(\.id) == [
+                1, 3,
+            ])
         #expect(try await members.count(matching: [.equals("role", "member")]) == 2)
-        #expect(try await members.page(matching: [], orderedBy: .ascending("age"), page: 1, pageSize: 2).items.map(\.id) == [4, 2])
+        #expect(
+            try await members.page(matching: [], orderedBy: .ascending("age"), page: 1, pageSize: 2).items.map(\.id)
+                == [4, 2])
     }
 
     @Test("every number type maps to its Double value")
@@ -255,7 +270,9 @@ struct IndexTests {
         let layout = IndexLayout(Member.self)
         #expect(layout.signature == "role:s|age:n|joined:n")
 
-        let query = layout.query(filters: [.equals("role", "admin"), .between("age", 18...30), .atMost("age", 25)], order: .descending("joined"))
+        let query = layout.query(
+            filters: [.equals("role", "admin"), .between("age", 18...30), .atMost("age", 25)],
+            order: .descending("joined"))
         #expect(query.strings == ["admin", nil, nil])
         #expect(query.minimums == [nil, 18, nil])
         #expect(query.maximums == [nil, 25, nil])

@@ -56,6 +56,10 @@ type_body_length:
   warning: 450
   error: 600
 
+function_parameter_count:   # the internal engine query takes 7 (type, filter, index query, sort, paging, clock)
+  warning: 7
+  error: 8
+
 function_body_length:
   warning: 120
   error: 200

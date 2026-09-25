@@ -19,9 +19,15 @@ extension StorageChange: Equatable where Entity: Equatable {}
 extension StorageChange {
     init?(_ raw: RawChange) {
         switch raw {
-        case .inserted(let value): guard let value = value as? Entity else { return nil }; self = .inserted(value)
-        case .updated(let value): guard let value = value as? Entity else { return nil }; self = .updated(value)
-        case .deleted(let value): guard let value = value as? Entity else { return nil }; self = .deleted(value)
+        case .inserted(let value):
+            guard let value = value as? Entity else { return nil }
+            self = .inserted(value)
+        case .updated(let value):
+            guard let value = value as? Entity else { return nil }
+            self = .updated(value)
+        case .deleted(let value):
+            guard let value = value as? Entity else { return nil }
+            self = .deleted(value)
         case .cleared: self = .cleared
         case .expired: self = .expired
         }

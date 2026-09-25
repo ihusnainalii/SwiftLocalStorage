@@ -38,12 +38,14 @@ struct EngineContractTests {
     func ordering(engine: Engine) async throws {
         let clock = TestDateClock()
         let storage = try engine.storage(clock: clock)
-        let first = User.make("First"), second = User.make("Second"), third = User.make("Third")
+        let first = User.make("First")
+        let second = User.make("Second")
+        let third = User.make("Third")
 
-        try await storage.save([first, second])      // same instant
+        try await storage.save([first, second])  // same instant
         clock.advance(by: 1)
         try await storage.save(third)
-        try await storage.save(first)                  // update keeps createdAt
+        try await storage.save(first)  // update keeps createdAt
 
         #expect(try await storage.fetch(User.self).map(\.name) == ["First", "Second", "Third"])
     }
@@ -51,10 +53,10 @@ struct EngineContractTests {
     @Test("records saved in one batch keep their insertion order", arguments: Engine.allCases)
     func batchOrder(engine: Engine) async throws {
         let storage = try engine.storage()
-        let users = (0..<50).map { User.make("U\($0)") }     // all share one createdAt
+        let users = (0..<50).map { User.make("U\($0)") }  // all share one createdAt
 
         try await storage.save(users)
-        try await storage.save(users[10])                       // an update keeps its position
+        try await storage.save(users[10])  // an update keeps its position
 
         #expect(try await storage.fetch(User.self).map(\.id) == users.map(\.id))
     }
@@ -74,7 +76,8 @@ struct EngineContractTests {
     func fetchAllPurges(engine: Engine) async throws {
         let clock = TestDateClock()
         let storage = try engine.storage(clock: clock)
-        let keep = User.make("Keep"), drop = User.make("Drop")
+        let keep = User.make("Keep")
+        let drop = User.make("Drop")
         try await storage.save(keep)
         try await storage.save(drop, expiration: .seconds(1))
         clock.advance(by: 2)

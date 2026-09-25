@@ -81,7 +81,8 @@ struct EntityStorageTests {
     @Test("delete removes one value; deleting a missing ID is a no-op")
     func delete() async throws {
         let storage = try makeStorage()
-        let a = User.make("A"), b = User.make("B")
+        let a = User.make("A")
+        let b = User.make("B")
         try await storage.save([a, b])
 
         try await storage.delete(User.self, id: a.id)

@@ -47,17 +47,18 @@ struct ObservationTests {
     @Test("delete emits the stored value; missing IDs emit nothing", arguments: Engine.allCases)
     func deletes(engine: Engine) async throws {
         let storage = try engine.storage()
-        let a = User.make("A"), b = User.make("B")
+        let a = User.make("A")
+        let b = User.make("B")
         try await storage.save([a, b])
         var changes = storage.changes(of: User.self).makeAsyncIterator()
 
-        try await storage.delete(User.self, id: UUID())                 // missing: no event
+        try await storage.delete(User.self, id: UUID())  // missing: no event
         var staleCopy = a
         staleCopy.name = "caller's stale copy"
-        try await storage.delete([staleCopy, User.make("Ghost")])         // ghost: no event
+        try await storage.delete([staleCopy, User.make("Ghost")])  // ghost: no event
         try await storage.delete(User.self, id: b.id)
 
-        #expect(await changes.next() == .deleted(a))                      // the stored value
+        #expect(await changes.next() == .deleted(a))  // the stored value
         #expect(await changes.next() == .deleted(b))
     }
 
@@ -68,12 +69,12 @@ struct ObservationTests {
         var users = storage.changes(of: User.self).makeAsyncIterator()
         var products = storage.changes(of: Product.self).makeAsyncIterator()
 
-        try await storage.deleteAll(User.self)                            // User only
+        try await storage.deleteAll(User.self)  // User only
         try await storage.save(Product(id: 1, title: "x"), expiration: .seconds(1))
         clock.advance(by: 2)
-        #expect(try await storage.removeExpired() == 1)                   // everyone
-        #expect(try await storage.removeExpired() == 0)                   // nothing removed: no event
-        try await storage.removeAll()                                     // everyone
+        #expect(try await storage.removeExpired() == 1)  // everyone
+        #expect(try await storage.removeExpired() == 0)  // nothing removed: no event
+        try await storage.removeAll()  // everyone
 
         #expect(await users.next() == .cleared)
         #expect(await users.next() == .expired)
@@ -89,7 +90,7 @@ struct ObservationTests {
         var users = storage.changes(of: User.self).makeAsyncIterator()
 
         try await storage.save(Product(id: 1, title: "x"))
-        try await storage.set("kv", forKey: "k")                          // key-value: no event
+        try await storage.set("kv", forKey: "k")  // key-value: no event
         let user = User.make()
         try await storage.save(user)
 
@@ -121,7 +122,7 @@ struct ObservationTests {
         await task.value
         #expect(!storage.hub.hasObservers(typeName))
 
-        do { _ = storage.changes(of: User.self) }                         // released without iterating
+        do { _ = storage.changes(of: User.self) }  // released without iterating
         #expect(!storage.hub.hasObservers(typeName))
     }
 
@@ -157,7 +158,7 @@ struct ObservationTests {
             emissions += 1
         }
         #expect(latest.map(\.id) == burst.map(\.id))
-        #expect(emissions < 50)                                           // not one refetch per write
+        #expect(emissions < 50)  // not one refetch per write
     }
 
     @Test("all() yields every value in batches and stops early when asked", arguments: Engine.allCases)

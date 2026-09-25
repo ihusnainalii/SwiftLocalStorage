@@ -88,9 +88,10 @@ actor SwiftDataEngine: StorageEngine {
 
     func staleIndexKeys(typeName: String, signature: String) async throws -> [String] {
         let entity = RecordKind.entity.rawValue
-        let descriptor = FetchDescriptor<StoredRecord>(predicate: #Predicate {
-            $0.kind == entity && $0.typeName == typeName && ($0.indexSignature ?? "") != signature
-        })
+        let descriptor = FetchDescriptor<StoredRecord>(
+            predicate: #Predicate {
+                $0.kind == entity && $0.typeName == typeName && ($0.indexSignature ?? "") != signature
+            })
         return try modelContext.fetch(descriptor).map(\.key)
     }
 
@@ -148,9 +149,10 @@ actor SwiftDataEngine: StorageEngine {
     }
 
     func count(kind: RecordKind, typeName: String, now: Date, index: IndexQuery?) async throws -> Int {
-        try modelContext.fetchCount(FetchDescriptor<StoredRecord>(
-            predicate: Self.livePredicate(kind: kind, typeName: typeName, now: now, index: index)
-        ))
+        try modelContext.fetchCount(
+            FetchDescriptor<StoredRecord>(
+                predicate: Self.livePredicate(kind: kind, typeName: typeName, now: now, index: index)
+            ))
     }
 
     /// Live records of one kind + type, narrowed by `index` when given. Unused conditions are
@@ -168,12 +170,24 @@ actor SwiftDataEngine: StorageEngine {
         // A missing number never satisfies a bound: it's coalesced to the far end of the range.
         let low = -Double.greatestFiniteMagnitude
         let high = Double.greatestFiniteMagnitude
-        let s0 = index.strings[0], s1 = index.strings[1], s2 = index.strings[2]
-        let hasS0 = s0 != nil, hasS1 = s1 != nil, hasS2 = s2 != nil
-        let min0 = index.minimums[0] ?? low, min1 = index.minimums[1] ?? low, min2 = index.minimums[2] ?? low
-        let hasMin0 = index.minimums[0] != nil, hasMin1 = index.minimums[1] != nil, hasMin2 = index.minimums[2] != nil
-        let max0 = index.maximums[0] ?? high, max1 = index.maximums[1] ?? high, max2 = index.maximums[2] ?? high
-        let hasMax0 = index.maximums[0] != nil, hasMax1 = index.maximums[1] != nil, hasMax2 = index.maximums[2] != nil
+        let s0 = index.strings[0]
+        let s1 = index.strings[1]
+        let s2 = index.strings[2]
+        let hasS0 = s0 != nil
+        let hasS1 = s1 != nil
+        let hasS2 = s2 != nil
+        let min0 = index.minimums[0] ?? low
+        let min1 = index.minimums[1] ?? low
+        let min2 = index.minimums[2] ?? low
+        let hasMin0 = index.minimums[0] != nil
+        let hasMin1 = index.minimums[1] != nil
+        let hasMin2 = index.minimums[2] != nil
+        let max0 = index.maximums[0] ?? high
+        let max1 = index.maximums[1] ?? high
+        let max2 = index.maximums[2] ?? high
+        let hasMax0 = index.maximums[0] != nil
+        let hasMax1 = index.maximums[1] != nil
+        let hasMax2 = index.maximums[2] != nil
         return #Predicate<StoredRecord> { record in
             record.kind == kindRaw && record.typeName == typeName && (record.expiresAt ?? distantFuture) > now
                 && (!hasS0 || record.s0 == s0) && (!hasS1 || record.s1 == s1) && (!hasS2 || record.s2 == s2)
@@ -185,14 +199,15 @@ actor SwiftDataEngine: StorageEngine {
 
     private static func sortDescriptors(_ order: IndexQuery.Order) -> [SortDescriptor<StoredRecord>] {
         let direction: SortOrder = order.ascending ? .forward : .reverse
-        let key: SortDescriptor<StoredRecord> = switch (order.slot, order.isString) {
-        case (0, true): SortDescriptor(\.s0, order: direction)
-        case (1, true): SortDescriptor(\.s1, order: direction)
-        case (2, true): SortDescriptor(\.s2, order: direction)
-        case (0, false): SortDescriptor(\.n0, order: direction)
-        case (1, false): SortDescriptor(\.n1, order: direction)
-        default: SortDescriptor(\.n2, order: direction)
-        }
+        let key: SortDescriptor<StoredRecord> =
+            switch (order.slot, order.isString) {
+            case (0, true): SortDescriptor(\.s0, order: direction)
+            case (1, true): SortDescriptor(\.s1, order: direction)
+            case (2, true): SortDescriptor(\.s2, order: direction)
+            case (0, false): SortDescriptor(\.n0, order: direction)
+            case (1, false): SortDescriptor(\.n1, order: direction)
+            default: SortDescriptor(\.n2, order: direction)
+            }
         // Ties keep insertion order in both directions (a stable sort).
         return [key, SortDescriptor(\.sequence)]
     }
