@@ -35,8 +35,9 @@ actor SwiftDataEngine: StorageEngine {
         return lastSequence!
     }
 
-    func upsert(_ writes: [RecordWrite], now: Date) async throws {
+    func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> {
         let sequenceBeforeBatch = lastSequence
+        var inserted = Set<String>()
         do {
             for write in writes {
                 if let existing = try model(forKey: write.key) {
@@ -52,9 +53,11 @@ actor SwiftDataEngine: StorageEngine {
                         createdAt: now, updatedAt: now, expiresAt: write.expiresAt,
                         sequence: try nextSequence()
                     ))
+                    inserted.insert(write.key)
                 }
             }
             try modelContext.save()
+            return inserted
         } catch {
             modelContext.rollback()
             lastSequence = sequenceBeforeBatch
