@@ -19,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CI: GitHub Actions moved to their Node 24 majors (`checkout@v7`, `cache@v6`, `upload-artifact@v7`, `codecov-action@v7`, `release-please-action@v5`).
 - README (filters table, live indexed queries, complete example now uses `updates(matching:orderedBy:)`, performance and limitations, upgrading row), DocC (*Indexed Fields*, *Observing Changes*, *Querying*) and ROADMAP updated for 1.1; release-please now also bumps the version shown in the README.
 
+### Fixed
+- Opening several stores at the same time could crash on macOS 15 (SwiftData raced while building the versioned schemas; seen as "model is still editable" followed by SIGABRT/SEGV under parallel tests). Container creation is now serialised process-wide.
+
 ## [1.0.0] - 2026-09-25
 
 The API is now stable: every 1.x release stays source-compatible with this one.

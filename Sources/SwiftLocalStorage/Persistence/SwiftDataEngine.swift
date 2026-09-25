@@ -6,8 +6,18 @@ import SwiftData
 @ModelActor
 actor SwiftDataEngine: StorageEngine {
 
+    /// Serialises container creation. Building the versioned schemas and migration plan
+    /// concurrently races inside SwiftData/CoreData on macOS 15 ("model is still editable",
+    /// then a crash), e.g. when several stores open at launch or tests run in parallel.
+    private static let openLock = NSLock()
+
     /// Opens (or creates) the container described by `configuration`.
     static func make(configuration: LocalStorageConfiguration) throws -> SwiftDataEngine {
+        // ponytail: one process-wide lock; opening is a one-off per store, so contention is moot.
+        try openLock.withLock { try open(configuration) }
+    }
+
+    private static func open(_ configuration: LocalStorageConfiguration) throws -> SwiftDataEngine {
         let schema = Schema(versionedSchema: CurrentStorageSchema.self)
         let modelConfiguration = ModelConfiguration(
             configuration.name,
