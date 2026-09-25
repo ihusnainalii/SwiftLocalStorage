@@ -62,7 +62,7 @@ struct DTOMigrationTests {
     private func migrationError(_ body: () async throws -> Void) async -> (key: String, underlying: any Error)? {
         do {
             try await body()
-        } catch let LocalStorageError.migrationFailed(key, underlying) {
+        } catch LocalStorageError.migrationFailed(let key, let underlying) {
             return (key, underlying)
         } catch {
             Issue.record("expected migrationFailed, got \(error)")
