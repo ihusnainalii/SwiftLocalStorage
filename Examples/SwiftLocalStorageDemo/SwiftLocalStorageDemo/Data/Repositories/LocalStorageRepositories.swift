@@ -1,0 +1,109 @@
+import Foundation
+import SwiftLocalStorage
+
+// The only layer that imports SwiftLocalStorage. Domain entities are persisted as-is — no
+// `@Model` mirrors — with stable storage names pinned here, out of the Domain layer.
+
+extension Product: LocalStorageNaming {
+    static var storageTypeName: String { "Product" }
+}
+
+extension Note: LocalStorageNaming {
+    static var storageTypeName: String { "Note" }
+}
+
+extension AppSettings.CacheLifetime {
+    var expiration: CacheExpiration {
+        seconds.map { .seconds(TimeInterval($0)) } ?? .never
+    }
+}
+
+/// Cache-first products: `LocalStorage` in front of the remote API.
+struct CachedProductRepository: ProductRepository {
+    let storage: LocalStorage
+    let api: any ProductAPI
+
+    func catalog(forceRefresh: Bool, lifetime: AppSettings.CacheLifetime) async throws -> CatalogSnapshot {
+        var source = CatalogSource.cache
+        var products = forceRefresh ? [] : try await storage.fetch(Product.self)
+        if products.isEmpty {
+            products = try await api.fetchProducts()
+            try await storage.deleteAll(Product.self)
+            try await storage.save(products, expiration: lifetime.expiration)
+            source = .network
+        }
+        var metadata: StorageMetadata?
+        if let first = products.first {
+            metadata = try await storage.metadata(Product.self, id: first.id)
+        }
+        return CatalogSnapshot(
+            products: products, source: source,
+            cachedAt: metadata?.createdAt, expiresAt: metadata?.expiresAt,
+            payloadBytesPerItem: metadata?.size, networkRequestCount: await api.requestCount
+        )
+    }
+
+    func delete(_ products: [Product]) async throws {
+        try await storage.delete(products)
+    }
+
+    func clearCache() async throws {
+        try await storage.deleteAll(Product.self)
+    }
+}
+
+/// Notes through a typed `LocalRepository`; user data never expires.
+struct LocalNoteRepository: NoteRepository {
+    let notes: LocalRepository<Note>
+
+    init(storage: LocalStorage) {
+        notes = storage.repository(Note.self)
+    }
+
+    func all() async throws -> [Note] { try await notes.fetchAll() }
+    func save(_ note: Note) async throws { try await notes.save(note) }
+    func delete(_ items: [Note]) async throws { try await notes.delete(items) }
+}
+
+/// Preferences and launch bookkeeping in key-value storage.
+struct LocalSettingsRepository: SettingsRepository {
+    let storage: LocalStorage
+
+    private enum Key {
+        static let settings = "settings"
+        static let launchCount = "launchCount"
+        static let lastLaunch = "lastLaunch"
+    }
+
+    func load() async throws -> AppSettings {
+        try await storage.get(AppSettings.self, forKey: Key.settings) ?? AppSettings()
+    }
+
+    func save(_ settings: AppSettings) async throws {
+        try await storage.set(settings, forKey: Key.settings)
+    }
+
+    func recordLaunch(at date: Date) async throws -> LaunchInfo {
+        let previous = try await storage.get(Date.self, forKey: Key.lastLaunch)
+        let count = (try await storage.get(Int.self, forKey: Key.launchCount) ?? 0) + 1
+        try await storage.set(count, forKey: Key.launchCount)
+        try await storage.set(date, forKey: Key.lastLaunch)
+        return LaunchInfo(count: count, previousLaunch: previous)
+    }
+}
+
+struct LocalMaintenanceRepository: MaintenanceRepository {
+    let storage: LocalStorage
+
+    func stats() async throws -> StorageStats {
+        StorageStats(liveProducts: try await storage.count(Product.self), notes: try await storage.count(Note.self))
+    }
+
+    func removeExpired() async throws -> Int {
+        try await storage.removeExpired()
+    }
+
+    func removeAll() async throws {
+        try await storage.removeAll()
+    }
+}

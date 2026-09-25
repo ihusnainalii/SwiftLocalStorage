@@ -1,0 +1,60 @@
+# XcodeGen spec. Regenerate the project with:  cd Examples/SwiftLocalStorageDemo && xcodegen
+name: SwiftLocalStorageDemo
+options:
+  bundleIdPrefix: com.ihusnainalii
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  SwiftLocalStorage:
+    path: ../..
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.2.1"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  SwiftLocalStorageDemo:
+    type: application
+    platform: iOS
+    sources:
+      - SwiftLocalStorageDemo
+    dependencies:
+      - package: SwiftLocalStorage
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ihusnainalii.SwiftLocalStorageDemo
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: LocalStorage Demo
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+  SwiftLocalStorageDemoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - SwiftLocalStorageDemoTests
+    dependencies:
+      - target: SwiftLocalStorageDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ihusnainalii.SwiftLocalStorageDemoTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/SwiftLocalStorageDemo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SwiftLocalStorageDemo"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  SwiftLocalStorageDemo:
+    build:
+      targets:
+        SwiftLocalStorageDemo: all
+        SwiftLocalStorageDemoTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SwiftLocalStorageDemoTests
