@@ -19,6 +19,7 @@ public final class LocalStorage: Sendable {
     let configuration: LocalStorageConfiguration
     let engine: any StorageEngine
     let now: @Sendable () -> Date
+    let hub = ChangeHub()
 
     /// Opens (or creates) the SwiftData store described by `configuration`.
     ///
@@ -61,9 +62,14 @@ public final class LocalStorage: Sendable {
                 kind: .entity, typeName: typeName, payload: try encode(value), expiresAt: expiresAt
             )
         }
-        try await perform("save \(typeName) ×\(writes.count) (\(writes.byteCount) bytes)", level: .info) {
+        var newKeys = try await perform("save \(typeName) ×\(writes.count) (\(writes.byteCount) bytes)", level: .info) {
             try await engine.upsert(writes, now: timestamp)
         }
+        // A key inserted by this batch is `.inserted` the first time it appears, `.updated` after.
+        let changes = zip(values, writes).map { value, write -> RawChange in
+            newKeys.remove(write.key) != nil ? .inserted(value) : .updated(value)
+        }
+        hub.publish(changes, to: typeName)
     }
 
     /// The stored value with `id`, or `nil` if there is none.
@@ -130,14 +136,28 @@ public final class LocalStorage: Sendable {
 
     /// Deletes the value with `id`. Deleting a missing ID is a no-op.
     public func delete<T: Identifiable & Codable & Sendable>(_ type: T.Type, id: T.ID) async throws {
-        let key = StorageKey.entity(type, id: id)
-        try await perform("delete \(key)", level: .info) { try await engine.delete(keys: [key]) }
+        try await delete(type, keys: [StorageKey.entity(type, id: id)])
     }
 
     /// Deletes every given value by ID in one operation. Missing values are ignored.
     public func delete<T: Identifiable & Codable & Sendable>(_ values: [T]) async throws {
-        let keys = values.map { StorageKey.entity(T.self, id: $0.id) }
-        try await perform("delete ×\(keys.count)", level: .info) { try await engine.delete(keys: keys) }
+        try await delete(T.self, keys: values.map { StorageKey.entity(T.self, id: $0.id) })
+    }
+
+    private func delete<T: Identifiable & Codable & Sendable>(_ type: T.Type, keys: [String]) async throws {
+        let typeName = StorageKey.typeName(of: type)
+        // `.deleted` carries the stored value, so read it first — but only if someone is watching.
+        var deleted: [T] = []
+        if hub.hasObservers(typeName) {
+            for key in keys {
+                // An undecodable record is still deleted; it just has no value to report.
+                if let value = try? await value(type, key: key) { deleted.append(value) }
+            }
+        }
+        try await perform(keys.count == 1 ? "delete \(keys[0])" : "delete ×\(keys.count)", level: .info) {
+            try await engine.delete(keys: keys)
+        }
+        hub.publish(deleted.map { .deleted($0) }, to: typeName)
     }
 
     /// Metadata for the value with `id`, including when it has expired; `nil` if there is none.
@@ -158,6 +178,7 @@ public final class LocalStorage: Sendable {
         try await perform("delete all \(typeName)", level: .info) {
             try await engine.deleteAll(kind: .entity, typeName: typeName)
         }
+        hub.publish([.cleared], to: typeName)
     }
 
     // MARK: - Key-value
@@ -197,12 +218,81 @@ public final class LocalStorage: Sendable {
     /// Reads already skip and purge expired records, so this is only needed to reclaim space.
     @discardableResult
     public func removeExpired() async throws -> Int {
-        try await perform("remove expired", level: .info) { try await engine.deleteExpired(now: now()) }
+        let removed = try await perform("remove expired", level: .info) { try await engine.deleteExpired(now: now()) }
+        if removed > 0 { hub.publishToAll(.expired) }
+        return removed
     }
 
     /// Deletes everything in this store — entities and key-value entries alike.
     public func removeAll() async throws {
         try await perform("remove all", level: .info) { try await engine.deleteAll() }
+        hub.publishToAll(.cleared)
+    }
+
+    // MARK: - Observation
+
+    /// Every change to stored values of `type` made through this storage, as it happens.
+    ///
+    /// ```swift
+    /// for await change in storage.changes(of: User.self) { ... }
+    /// ```
+    ///
+    /// Events arrive after each write commits. The stream buffers every event and ends when the
+    /// consuming task is cancelled.
+    public func changes<T: Identifiable & Codable & Sendable>(of type: T.Type) -> AsyncStream<StorageChange<T>> {
+        changes(of: type, bufferingPolicy: .unbounded)
+    }
+
+    /// The current values of `type` (sorted and sliced by `options`), then the values again after
+    /// every change to the type — a live query for SwiftUI:
+    ///
+    /// ```swift
+    /// .task {
+    ///     for try await users in storage.updates(of: User.self) { self.users = users }
+    /// }
+    /// ```
+    ///
+    /// Bursts of writes are coalesced into one refetch. If the consumer falls behind, it receives
+    /// the newest result.
+    public func updates<T: Identifiable & Codable & Sendable>(
+        of type: T.Type, options: FetchOptions = .default
+    ) -> AsyncThrowingStream<[T], any Error> {
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            // Subscribe before the first fetch so no change can slip between the two.
+            let changes = self.changes(of: type, bufferingPolicy: .bufferingNewest(1))
+            let task = Task {
+                do {
+                    continuation.yield(try await self.fetch(type, options: options))
+                    for await _ in changes {
+                        continuation.yield(try await self.fetch(type, options: options))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Every stored value of `type`, oldest first, loaded `batchSize` at a time as the loop
+    /// advances, so large types are never fully in memory.
+    public func all<T: Identifiable & Codable & Sendable>(_ type: T.Type, batchSize: Int = 100) -> StorageSequence<T> {
+        precondition(batchSize >= 1, "batchSize must be at least 1")
+        return StorageSequence(storage: self, batchSize: batchSize)
+    }
+
+    func changes<T: Identifiable & Codable & Sendable>(
+        of type: T.Type, bufferingPolicy: AsyncStream<StorageChange<T>>.Continuation.BufferingPolicy
+    ) -> AsyncStream<StorageChange<T>> {
+        let typeName = StorageKey.typeName(of: type)
+        let hub = hub
+        return AsyncStream(bufferingPolicy: bufferingPolicy) { continuation in
+            let token = hub.subscribe(typeName: typeName) { raw in
+                if let change = StorageChange<T>(raw) { continuation.yield(change) }
+            }
+            continuation.onTermination = { _ in hub.unsubscribe(typeName: typeName, token: token) }
+        }
     }
 
     // MARK: - Internals
@@ -244,6 +334,7 @@ public final class LocalStorage: Sendable {
 
     /// Checks cancellation up front, maps every engine error to ``LocalStorageError``, and logs
     /// `operation` at `level` on success or at `.error` on failure.
+    @discardableResult
     func perform<R>(
         _ operation: @autoclosure () -> String,
         level: StorageLogLevel,

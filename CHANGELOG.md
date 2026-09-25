@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-25
+
+### Added
+- Design spec for v0.4 observation (`docs/specs/2026-09-25-swiftlocalstorage-v0.4-observation-design.md`).
+- `changes(of:)` → `AsyncStream<StorageChange<T>>` with `.inserted`, `.updated`, `.deleted` (the stored value), `.cleared` and `.expired`, delivered after each write commits.
+- `updates(of:options:)` → `AsyncThrowingStream<[T], Error>`: a live query that emits current results, then refetches after each change (bursts coalesced) — for SwiftUI `.task` loops.
+- `all(_:batchSize:)` → `StorageSequence<T>`: iterate a large type oldest first, loading `batchSize` records per step.
+- Repository equivalents: `changes()`, `updates(options:)`, `all(batchSize:)`.
+- Observation tests on both engines: event kinds and order, stored values on delete, type isolation, no events on failure, unsubscribe on cancel/release, live-query re-emit and coalescing, batched iteration.
+- README "Observation and SwiftUI" section (live query in `.task`, change-feed event table, batched iteration); roadmap, security policy and demo README updated for 0.4.
+
+### Changed
+- Internal: `StorageEngine.upsert` reports inserted keys so saves are classified as inserted/updated without extra reads; deletes read the stored value only when the type is observed.
+- Demo app: Notes renders from a live query (`updates()`) with no manual reloads; the Inspector shows an app-lifetime live change feed merged from `changes(of:)` and refreshes counts on every change.
+
 ## [0.3.0] - 2026-09-25
 
 ### Added
@@ -77,7 +92,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.2.1...v0.2.2

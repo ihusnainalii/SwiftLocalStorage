@@ -37,6 +37,8 @@ struct NotesView: View {
                 NoteEditor(note: note) { saved in Task { await viewModel.save(saved) } }
             }
             .errorAlert($viewModel.errorMessage)
+            // Live query: saves, pins and deletes show up here without any manual reload.
+            .task { await viewModel.observe() }
         }
     }
 }
@@ -89,5 +91,5 @@ private struct NoteEditor: View {
 
 #Preview {
     let container = AppContainer.preview()
-    NotesView(viewModel: container.notes).task { await container.notes.load() }
+    NotesView(viewModel: container.notes)
 }

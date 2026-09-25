@@ -14,7 +14,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 0.3.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
+- **Version:** 0.4.0 (pre-1.0: minor versions may contain breaking changes; see [Versioning](#versioning))
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
 - **Distribution:** Swift Package Manager
@@ -35,6 +35,7 @@
 - [Key-value storage](#key-value-storage)
 - [Repositories](#repositories)
 - [Queries: sorting, paging, filtering](#queries-sorting-paging-filtering)
+- [Observation and SwiftUI](#observation-and-swiftui)
 - [Cache expiration](#cache-expiration)
 - [Metadata](#metadata)
 - [Configuration](#configuration)
@@ -97,6 +98,7 @@ natural fit for caching the DTOs that SwiftNetworkKit decodes.
 | **Key-value storage** | `set` / `get` / `remove` for any `Codable` value under a string key |
 | **Repositories** | `storage.repository(User.self)` — a typed handle without the `T.self` noise |
 | **Queries** | Four sort orders, `limit` / `offset` pushed down to SwiftData, 1-based pages with totals, and closure filters on any DTO field |
+| **Observation** | Typed change feeds (`AsyncStream`), coalescing live queries for SwiftUI, and batched iteration of large types |
 | **Cache expiration** | `.seconds`, `.minutes`, `.hours`, `.days`, `.date`, `.never`; expired records read as absent and are purged lazily; `removeExpired()` |
 | **Metadata** | created/updated/expiry dates, payload size and expiry state per record |
 | **Isolation** | Types sharing an ID never collide; entities and key-value entries live in separate namespaces |
@@ -132,7 +134,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.3.0"),
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "0.4.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),
@@ -143,7 +145,7 @@ targets: [
 
 **File ▸ Add Package Dependencies…**, paste
 `https://github.com/ihusnainalii/SwiftLocalStorage.git`, choose **Up to Next Minor Version** from
-`0.3.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
+`0.4.0` (pre-1.0), and add the `SwiftLocalStorage` library to your target.
 
 ---
 
@@ -323,6 +325,71 @@ stable. Expired records never appear in results, counts or page totals.
 
 Repositories have the same calls: `fetchAll(options:)`, `fetch(where:options:)` and
 `page(_:pageSize:sort:)`.
+
+---
+
+## Observation and SwiftUI
+
+**Live query:** the current results, then the results again after every change to the type. This is
+the simplest way to keep a SwiftUI list in sync:
+
+```swift
+struct UsersView: View {
+    let storage: LocalStorage
+    @State private var users: [User] = []
+
+    var body: some View {
+        List(users) { Text($0.name) }
+            .task {
+                do {
+                    for try await latest in storage.updates(of: User.self, options: FetchOptions(sort: .newestFirst)) {
+                        users = latest
+                    }
+                } catch {
+                    // LocalStorageError, e.g. a record that no longer decodes
+                }
+            }
+    }
+}
+```
+
+The loop ends when the view disappears, because SwiftUI cancels `.task`. Bursts of writes
+are coalesced into one refetch.
+
+**Change feed:** each change as a typed event:
+
+```swift
+for await change in storage.changes(of: User.self) {
+    switch change {
+    case .inserted(let user):  print("new", user.name)
+    case .updated(let user):   print("changed", user.name)
+    case .deleted(let user):   print("removed", user.name)   // the value as it was stored
+    case .cleared:             print("deleteAll or removeAll")
+    case .expired:             print("removeExpired purged records")
+    }
+}
+```
+
+| Write | Event |
+|---|---|
+| `save` of a new / existing ID | `.inserted` / `.updated` (one per value, in order, for batches) |
+| `delete(_:id:)`, `delete([T])` | `.deleted(storedValue)` for each record that existed |
+| `deleteAll(T.self)` | `.cleared` for `T` |
+| `removeAll()` | `.cleared` for every observed type |
+| `removeExpired()` removing records | `.expired` for every observed type |
+
+Events are delivered after the write commits. Failed writes, key-value entries, lazy expiry on read,
+and writes made by *another* `LocalStorage` instance don't produce events.
+
+**Large types:** `all(_:batchSize:)` loads one batch per step instead of everything at once:
+
+```swift
+for try await user in storage.all(User.self, batchSize: 200) {
+    try await export(user)
+}
+```
+
+Repositories have `changes()`, `updates(options:)` and `all(batchSize:)`.
 
 ---
 
@@ -595,9 +662,10 @@ repository is a candidate for a future companion package; see the [roadmap](ROAD
 ## Demo app
 
 [`Examples/SwiftLocalStorageDemo`](Examples/SwiftLocalStorageDemo) is a complete SwiftUI iOS app
-built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with a live expiry
-countdown, **Notes** (a CRUD repository), **Settings** (key-value) and an **Inspector** (counts,
-`removeExpired()`, and the live storage log). The Domain layer never imports the package, and its
+built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with paging, a
+category filter and a live expiry countdown; **Notes**, a CRUD repository driven by a live query;
+**Settings** (key-value); and an **Inspector** with a live change feed, `removeExpired()` and the
+storage log. The Domain layer never imports the package, and its
 tests use an in-memory store with an injected clock.
 
 ```bash
@@ -624,6 +692,8 @@ open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
 - **Field filters run in memory.** `fetch(_:where:)` decodes every live value of the type before
   filtering. Sorting and paging by metadata (`createdAt`, `updatedAt`) run in the store. Sorting by
   a DTO field means sorting the fetched array yourself.
+- **Change events are per instance.** Only writes made through the same `LocalStorage` instance are
+  observed. Share one instance per store.
 - **Apple platforms only**, because SwiftData is Apple-only.
 - **No encryption at rest** beyond the platform's data protection.
 
@@ -650,8 +720,8 @@ Not yet. The engine protocol is internal while its shape settles. It will be con
 API before 1.0.
 
 **Does it work with SwiftUI?**
-Yes. Call it from `.task` or from your view models. Observation and `AsyncStream` change feeds are
-planned for 0.4.
+Yes. `updates(of:)` is a live query built for `.task { for try await ... }`, and `changes(of:)`
+gives typed events for view models. See [Observation and SwiftUI](#observation-and-swiftui).
 
 ---
 
@@ -681,8 +751,8 @@ Every release is tagged `vX.Y.Z`, has a GitHub Release, and has a section in
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3. Next up: observation and `AsyncStream`
-change feeds (0.4), DTO migration hooks (0.5), then an API freeze for 1.0.
+See [ROADMAP.md](ROADMAP.md). Queries shipped in 0.3 and observation in 0.4. Next up: DTO
+migration hooks (0.5), stored index fields (0.6), then an API freeze for 1.0.
 
 ---
 

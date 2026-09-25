@@ -39,7 +39,9 @@ struct RecordSnapshot: Sendable, Equatable {
 /// Every method that takes `now` treats rows with `expiresAt <= now` as absent.
 protocol StorageEngine: Sendable {
     /// Inserts or replaces every write atomically: either all land or none do.
-    func upsert(_ writes: [RecordWrite], now: Date) async throws
+    /// - Returns: the keys that did not exist before (the rest were updates).
+    @discardableResult
+    func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String>
 
     /// The record for `key`, expired or not.
     func record(forKey key: String) async throws -> RecordSnapshot?

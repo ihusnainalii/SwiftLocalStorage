@@ -9,6 +9,8 @@ final class AppContainer {
     let catalog: CatalogViewModel
     let notes: NotesViewModel
     let inspector: InspectorViewModel
+    /// The Inspector's activity feed lives as long as the app, not just while its tab is visible.
+    private var activityTask: Task<Void, Never>?
 
     init(storage: LocalStorage, logFeed: StorageLogFeed, api: any ProductAPI = FakeProductAPI()) {
         let productRepository = CachedProductRepository(storage: storage, api: api)
@@ -47,9 +49,9 @@ final class AppContainer {
 
     /// First-launch work: settings, launch bookkeeping, initial data.
     func start() async {
+        activityTask = Task { [inspector] in await inspector.observe() }
         await settings.load()
         await catalog.load()
-        await notes.load()
         await inspector.refresh()
     }
 }

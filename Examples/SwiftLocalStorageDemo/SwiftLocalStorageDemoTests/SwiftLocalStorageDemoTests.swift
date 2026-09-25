@@ -148,28 +148,53 @@ struct CatalogTests {
     }
 }
 
+/// Waits (up to 2 s) for main-actor state driven by a live stream to satisfy `condition`.
 @MainActor
-@Suite("Notes")
+func eventually(_ condition: @MainActor () -> Bool) async throws {
+    for _ in 0..<200 where !condition() {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(condition())
+}
+
+@MainActor
+@Suite("Notes (live query)")
 struct NotesTests {
 
-    @Test("notes persist, pinned first then newest first")
-    func ordering() async throws {
-        let harness = try Harness()
+    /// A view model with `observe()` running, as the Notes tab's `.task` does.
+    private func observed(_ harness: Harness) -> (NotesViewModel, Task<Void, Never>) {
         let viewModel = NotesViewModel(useCase: ManageNotesUseCase(repository: harness.notes))
+        return (viewModel, Task { await viewModel.observe() })
+    }
+
+    @Test("saves, pins and deletes appear without reloading; pinned first, then newest")
+    func liveOrdering() async throws {
+        let harness = try Harness()
+        let (viewModel, observation) = observed(harness)
+        defer { observation.cancel() }
         let old = Note(title: "Old", createdAt: .distantPast)
         let new = Note(title: "New", createdAt: .now)
 
         await viewModel.save(old)
         await viewModel.save(new)
-        #expect(viewModel.notes.map(\.title) == ["New", "Old"])
+        try await eventually { viewModel.notes.map(\.title) == ["New", "Old"] }
 
         await viewModel.togglePin(old)
-        #expect(viewModel.notes.map(\.title) == ["Old", "New"])
+        try await eventually { viewModel.notes.map(\.title) == ["Old", "New"] }
 
-        // A second view model over the same store sees the same data.
-        let reloaded = NotesViewModel(useCase: ManageNotesUseCase(repository: harness.notes))
-        await reloaded.load()
-        #expect(reloaded.notes.map(\.title) == ["Old", "New"])
+        await viewModel.delete(at: [0])
+        try await eventually { viewModel.notes.map(\.title) == ["New"] }
+    }
+
+    @Test("writes from elsewhere show up too")
+    func externalWrites() async throws {
+        let harness = try Harness()
+        let (viewModel, observation) = observed(harness)
+        defer { observation.cancel() }
+
+        try await harness.notes.save(Note(title: "From another screen"))
+
+        try await eventually { viewModel.notes.map(\.title) == ["From another screen"] }
     }
 
     @Test("an empty title is rejected and nothing is saved")
@@ -180,19 +205,7 @@ struct NotesTests {
         await viewModel.save(Note(title: "   "))
 
         #expect(viewModel.errorMessage == "A note needs a title.")
-        #expect(viewModel.notes.isEmpty)
-    }
-
-    @Test("delete removes the selected notes")
-    func delete() async throws {
-        let harness = try Harness()
-        let viewModel = NotesViewModel(useCase: ManageNotesUseCase(repository: harness.notes))
-        await viewModel.save(Note(title: "A"))
-        await viewModel.save(Note(title: "B"))
-
-        await viewModel.delete(at: [0])
-
-        #expect(viewModel.notes.count == 1)
+        #expect(try await harness.notes.all().isEmpty)
     }
 }
 
@@ -221,6 +234,31 @@ struct SettingsTests {
 
         #expect(first == LaunchInfo(count: 1, previousLaunch: nil))
         #expect(second == LaunchInfo(count: 2, previousLaunch: Date(timeIntervalSince1970: 100)))
+    }
+
+    @Test("the Inspector follows live changes and refreshes counts")
+    func activityFeed() async throws {
+        let harness = try Harness()
+        let viewModel = InspectorViewModel(repository: harness.maintenance, logFeed: StorageLogFeed())
+        let observation = Task { await viewModel.observe() }
+        defer { observation.cancel() }
+        // The feed subscribes inside the task; write warm-ups until it has demonstrably started.
+        let warmUp = Note(title: "warm-up")
+        while viewModel.activity.isEmpty {
+            try await harness.notes.save(warmUp)
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try await harness.notes.delete([warmUp])
+        try await eventually { viewModel.activity.first?.kind == .deleted }
+
+        let note = Note(title: "Hello")
+        try await harness.notes.save(note)
+        try await harness.notes.delete([note])
+
+        try await eventually { viewModel.activity.first?.detail == "Hello" && viewModel.activity.first?.kind == .deleted }
+        #expect(viewModel.activity.prefix(2).map(\.kind) == [.deleted, .inserted])
+        #expect(viewModel.activity.prefix(2).map(\.detail) == ["Hello", "Hello"])
+        try await eventually { viewModel.stats.notes == 0 }
     }
 
     @Test("remove expired and delete all")
