@@ -25,7 +25,7 @@ the two loggers.
 |---|---|
 | Public `StorageEngine`? | **No.** The engine protocol carries index slots, rewrite and sequencing details that would freeze the storage format. It stays internal; alternative engines are a 2.0 candidate. |
 | `@_spi(SwiftLocalStorageTesting)` (in-memory engine, clock injection) | Not covered by the promise; may change in a minor release. |
-| New cases in public enums (`LocalStorageError`, `.Code`, `StorageChange`, `StorageMigrationError`, `StorageLogLevel`) | Allowed in minor releases. Switch over them with a `default` / `@unknown default` branch. |
+| New enum cases | Allowed in minor releases only for the error enums (`LocalStorageError`, `LocalStorageError.Code`, `StorageMigrationError`); callers handle them with a `default` branch. Every other public enum is frozen for 1.x, because without library evolution a new case breaks exhaustive switches. |
 | On-disk format | Store schema migrations stay automatic and forward-only; a 1.x store opens in every later 1.x. |
 | Minimum platforms and Swift tools version | Raised only in a minor release, never in a patch. |
 
@@ -52,7 +52,8 @@ dependencies. It is not a product, so apps never link it.
 swift run -c release SwiftLocalStorageBenchmarks
 ```
 
-It prints a Markdown table (median of 5 runs, on-disk store in a temporary directory) for:
+It prints a Markdown table (median of 5 runs, against an on-disk store named
+`SwiftLocalStorageBenchmarks` that it empties before and after) for:
 
 - `save` batch, `fetch(options:)` all and `deleteAll` at 1, 100 and 1,000 records
 - `save` + `fetch(id:)` of a 1 MB and a 10 MB payload
