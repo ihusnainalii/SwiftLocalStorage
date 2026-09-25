@@ -8,7 +8,7 @@ actor SwiftDataEngine: StorageEngine {
 
     /// Opens (or creates) the container described by `configuration`.
     static func make(configuration: LocalStorageConfiguration) throws -> SwiftDataEngine {
-        let schema = Schema(versionedSchema: StorageSchemaV1.self)
+        let schema = Schema(versionedSchema: StorageSchemaV2.self)
         let modelConfiguration = ModelConfiguration(
             configuration.name,
             schema: schema,
@@ -22,7 +22,21 @@ actor SwiftDataEngine: StorageEngine {
         return SwiftDataEngine(modelContainer: container)
     }
 
+    /// The last `sequence` handed out; loaded lazily from the store on first insert.
+    private var lastSequence: Int?
+
+    private func nextSequence() throws -> Int {
+        if lastSequence == nil {
+            var descriptor = FetchDescriptor<StoredRecord>(sortBy: [SortDescriptor(\.sequence, order: .reverse)])
+            descriptor.fetchLimit = 1
+            lastSequence = try modelContext.fetch(descriptor).first?.sequence ?? 0
+        }
+        lastSequence! += 1
+        return lastSequence!
+    }
+
     func upsert(_ writes: [RecordWrite], now: Date) async throws {
+        let sequenceBeforeBatch = lastSequence
         do {
             for write in writes {
                 if let existing = try model(forKey: write.key) {
@@ -35,13 +49,15 @@ actor SwiftDataEngine: StorageEngine {
                     modelContext.insert(StoredRecord(
                         key: write.key, kind: write.kind.rawValue, typeName: write.typeName,
                         payload: write.payload, schemaVersion: 1,
-                        createdAt: now, updatedAt: now, expiresAt: write.expiresAt
+                        createdAt: now, updatedAt: now, expiresAt: write.expiresAt,
+                        sequence: try nextSequence()
                     ))
                 }
             }
             try modelContext.save()
         } catch {
             modelContext.rollback()
+            lastSequence = sequenceBeforeBatch
             throw error
         }
     }
@@ -54,7 +70,7 @@ actor SwiftDataEngine: StorageEngine {
         let kindRaw = kind.rawValue
         var descriptor = FetchDescriptor<StoredRecord>(
             predicate: #Predicate { $0.kind == kindRaw && $0.typeName == typeName },
-            sortBy: [SortDescriptor(\.createdAt)]
+            sortBy: [SortDescriptor(\.createdAt), SortDescriptor(\.sequence)]
         )
         descriptor.includePendingChanges = true
         let models = try modelContext.fetch(descriptor)
