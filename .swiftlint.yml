@@ -1,0 +1,75 @@
+# SwiftLint configuration for SwiftLocalStorage
+# Run: swiftlint lint --strict   (CI treats every violation as an error)
+
+included:
+  - Sources/SwiftLocalStorage
+  - Tests
+
+excluded:
+  - .build
+  - Examples
+  - docs
+
+# Style rules the codebase deliberately does not follow.
+disabled_rules:
+  - trailing_comma            # multi-line literals keep trailing commas for clean diffs
+  - todo                      # tracked in the plan / issues, not enforced here
+  - opening_brace             # `swift format` puts the brace on its own line after a wrapped condition
+  - static_over_final_class   # overridable class entry points
+
+opt_in_rules:
+  - array_init
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_first_not_nil
+  - empty_string
+  - explicit_init
+  - first_where
+  - last_where
+  - literal_expression_end_indentation
+  - modifier_order
+  - operator_usage_whitespace
+  - overridden_super_call
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+line_length:
+  warning: 120
+  error: 160
+  ignores_urls: true
+  ignores_comments: true
+
+identifier_name:
+  min_length: 0
+  max_length:
+    warning: 50
+    error: 60
+
+file_length:
+  warning: 600
+  error: 800
+
+type_body_length:
+  warning: 450
+  error: 600
+
+function_body_length:
+  warning: 120
+  error: 200
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+  ignores_case_statements: true
+
+large_tuple:
+  warning: 3
+  error: 4
+
+nesting:
+  type_level: 2
+
+reporter: "github-actions-logging"

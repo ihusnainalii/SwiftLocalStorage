@@ -1,0 +1,76 @@
+name: Release
+
+# Every merge to main runs release-please. It maintains a rolling "release PR" that
+# bumps version.txt + the CHANGELOG from the Conventional Commit history. Merging that
+# PR is the release: this workflow then tags it and publishes a GitHub Release whose
+# notes are the new CHANGELOG section.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.rp.outputs.release_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: rp
+        with:
+          # GITHUB_TOKEN works only if "Allow GitHub Actions to create and
+          # approve pull requests" is enabled (Settings > Actions > General).
+          # Set a RELEASE_PLEASE_TOKEN secret (PAT: contents+pull-requests write)
+          # to bypass that org/repo policy.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Sanity gate: the tagged commit must still pass the core checks before the
+  # release is considered good. (The Release itself is already published by
+  # release-please; this surfaces a red X on the tag if something regressed.)
+  verify-tag:
+    needs: release-please
+    if: needs.release-please.outputs.released == 'true'
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+      - run: swift build -Xswiftc -warnings-as-errors
+      - run: swift test --parallel
+      - name: Attach coverage to the Release
+        run: |
+          swift test --parallel --enable-code-coverage
+          bash scripts/coverage.sh
+          gh release upload "${{ needs.release-please.outputs.tag }}" \
+            .build/coverage/coverage.lcov .build/coverage/summary.md --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build DocC and attach to the Release
+        run: |
+          xcodebuild docbuild \
+            -scheme SwiftLocalStorage \
+            -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
+            -derivedDataPath "$RUNNER_TEMP/docbuild"
+          archive=$(find "$RUNNER_TEMP/docbuild" -type d -name '*.doccarchive' | head -1)
+          "$(xcrun --find docc)" process-archive transform-for-static-hosting "$archive" \
+            --output-path "$RUNNER_TEMP/docc-static" \
+            --hosting-base-path docs
+          COPYFILE_DISABLE=1 tar -C "$RUNNER_TEMP/docc-static" --no-mac-metadata -czf docc-static.tar.gz .
+          gh release upload "${{ needs.release-please.outputs.tag }}" docc-static.tar.gz --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

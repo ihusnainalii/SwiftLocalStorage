@@ -1,0 +1,37 @@
+name: Secret scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC - catch anything that slipped in
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: "8.24.3"
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the scan covers every commit
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks version
+
+      # Scan the whole commit graph directly with the CLI. No GitHub API calls, so
+      # it needs no extra token permissions and works the same on push, PR, and cron.
+      # `git` mode only sees committed content, which on a CI checkout is everything
+      # tracked; build artifacts (.build) are gitignored and never scanned.
+      - name: Scan
+        run: ./gitleaks git . --config .gitleaks.toml --redact --verbose --exit-code 1

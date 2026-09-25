@@ -1,0 +1,14 @@
+# gitleaks configuration for SwiftLocalStorage
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and demo placeholders — no real credentials in this repo."
+paths = [
+  '''Tests/SwiftLocalStorageTests/Fixtures/.*''',
+  '''Examples/SwiftLocalStorageDemo/.*''',
+]
+regexes = [
+  '''(stale|fresh|demo|test|example|mock)-token''',
+  '''AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=''',
+]
