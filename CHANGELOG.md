@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 - Internal: `StorageEngine.upsert` reports inserted keys so saves are classified as inserted/updated without extra reads; deletes read the stored value only when the type is observed.
+- Demo app: Notes renders from a live query (`updates()`) with no manual reloads; the Inspector shows an app-lifetime live change feed merged from `changes(of:)` and refreshes counts on every change.
 
 ## [0.3.0] - 2026-09-25
 

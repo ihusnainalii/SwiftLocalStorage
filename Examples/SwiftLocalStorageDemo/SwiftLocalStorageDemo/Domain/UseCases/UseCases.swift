@@ -23,11 +23,18 @@ struct LoadCatalogUseCase: Sendable {
 struct ManageNotesUseCase: Sendable {
     let repository: any NoteRepository
 
-    /// Pinned first, then newest first.
     func list() async throws -> [Note] {
-        try await repository.all().sorted {
-            ($0.isPinned ? 0 : 1, $1.createdAt) < ($1.isPinned ? 0 : 1, $0.createdAt)
-        }
+        Self.sorted(try await repository.all())
+    }
+
+    /// Live notes; sort each emission with ``sorted(_:)``.
+    func observe() -> AsyncThrowingStream<[Note], any Error> {
+        repository.observeAll()
+    }
+
+    /// Pinned first, then newest first.
+    static func sorted(_ notes: [Note]) -> [Note] {
+        notes.sorted { ($0.isPinned ? 0 : 1, $1.createdAt) < ($1.isPinned ? 0 : 1, $0.createdAt) }
     }
 
     enum ValidationError: Error, Equatable { case emptyTitle }

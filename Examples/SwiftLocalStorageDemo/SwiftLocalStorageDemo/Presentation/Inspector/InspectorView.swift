@@ -27,6 +27,17 @@ struct InspectorView: View {
                 }
 
                 Section {
+                    if viewModel.activity.isEmpty {
+                        Text("Save, edit or delete something in another tab.").foregroundStyle(.secondary)
+                    }
+                    ForEach(viewModel.activity.prefix(10)) { ActivityRow(event: $0) }
+                } header: {
+                    Text("Live changes")
+                } footer: {
+                    Text("From changes(of:), delivered after each write commits.")
+                }
+
+                Section {
                     if viewModel.logFeed.entries.isEmpty {
                         Text("No log lines yet.").foregroundStyle(.secondary)
                     }
@@ -48,6 +59,43 @@ struct InspectorView: View {
                 Button("Delete all data", role: .destructive) { Task { await viewModel.deleteAll() } }
             }
             .errorAlert($viewModel.errorMessage)
+        }
+    }
+}
+
+private struct ActivityRow: View {
+    let event: StorageActivity
+
+    var body: some View {
+        HStack {
+            Image(systemName: symbol).foregroundStyle(color).frame(width: 24)
+            VStack(alignment: .leading) {
+                Text("\(event.entity) \(event.kind.rawValue)").font(.subheadline.bold())
+                if let detail = event.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+            }
+            Spacer()
+            Text(event.date, format: .dateTime.hour().minute().second())
+                .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var symbol: String {
+        switch event.kind {
+        case .inserted: "plus.circle.fill"
+        case .updated: "pencil.circle.fill"
+        case .deleted: "minus.circle.fill"
+        case .cleared: "trash.circle.fill"
+        case .expired: "clock.badge.xmark"
+        }
+    }
+
+    private var color: Color {
+        switch event.kind {
+        case .inserted: .green
+        case .updated: .blue
+        case .deleted, .cleared: .red
+        case .expired: .orange
         }
     }
 }

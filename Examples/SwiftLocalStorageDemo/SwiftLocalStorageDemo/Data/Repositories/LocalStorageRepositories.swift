@@ -76,6 +76,7 @@ struct LocalNoteRepository: NoteRepository {
     }
 
     func all() async throws -> [Note] { try await notes.fetchAll() }
+    func observeAll() -> AsyncThrowingStream<[Note], any Error> { notes.updates() }
     func save(_ note: Note) async throws { try await notes.save(note) }
     func delete(_ items: [Note]) async throws { try await notes.delete(items) }
 }
@@ -120,5 +121,40 @@ struct LocalMaintenanceRepository: MaintenanceRepository {
 
     func removeAll() async throws {
         try await storage.removeAll()
+    }
+
+    /// Merges the Product and Note change feeds into one activity stream.
+    func activity() -> AsyncStream<StorageActivity> {
+        let products = storage.changes(of: Product.self)
+        let notes = storage.changes(of: Note.self)
+        return AsyncStream { continuation in
+            let productTask = Task {
+                for await change in products {
+                    continuation.yield(StorageActivity(entity: "Product", change: change) { $0.name })
+                }
+            }
+            let noteTask = Task {
+                for await change in notes {
+                    continuation.yield(StorageActivity(entity: "Note", change: change) { $0.title })
+                }
+            }
+            continuation.onTermination = { _ in
+                productTask.cancel()
+                noteTask.cancel()
+            }
+        }
+    }
+}
+
+extension StorageActivity {
+    init<T>(entity: String, change: StorageChange<T>, name: (T) -> String) {
+        let (kind, value): (Kind, T?) = switch change {
+        case .inserted(let value): (.inserted, value)
+        case .updated(let value): (.updated, value)
+        case .deleted(let value): (.deleted, value)
+        case .cleared: (.cleared, nil)
+        case .expired: (.expired, nil)
+        }
+        self.init(date: .now, entity: entity, kind: kind, detail: value.map(name))
     }
 }
