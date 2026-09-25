@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `updates(of:options:)` → `AsyncThrowingStream<[T], Error>`: a live query that emits current results, then refetches after each change (bursts coalesced) — for SwiftUI `.task` loops.
 - `all(_:batchSize:)` → `StorageSequence<T>`: iterate a large type oldest first, loading `batchSize` records per step.
 - Repository equivalents: `changes()`, `updates(options:)`, `all(batchSize:)`.
+- Observation tests on both engines: event kinds and order, stored values on delete, type isolation, no events on failure, unsubscribe on cancel/release, live-query re-emit and coalescing, batched iteration.
 
 ### Changed
 - Internal: `StorageEngine.upsert` reports inserted keys so saves are classified as inserted/updated without extra reads; deletes read the stored value only when the type is observed.
