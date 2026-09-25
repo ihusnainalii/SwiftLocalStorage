@@ -10,12 +10,12 @@
 | **0.3.0** | `FetchOptions` (sort, limit, offset in the store), `StorageSort`, 1-based `StoragePage`, closure filters on DTO fields |
 | **0.4.0** | `changes(of:)` typed change feed, `updates(of:options:)` coalescing live query, `all(_:batchSize:)` batched iteration |
 | **0.5.0** | `LocalStorageVersioned` DTOs, typed/raw `StorageMigration` steps, lazy write-back on read, `migrateAll`, `LocalStorageError.migrationFailed` |
+| **0.6.0** | `LocalStorageIndexed` (up to 3 string/number indexes), in-store `matching:` filters, `orderedBy:`, counts and pages, automatic re-indexing, schema V3 |
 
 ## Next
 
 | Version | Track | Scope |
 |---|---|---|
-| **0.6** | Indexed fields | Opt-in stored index fields so hot filters/sorts on DTO fields run in the store |
 | **1.0** | API freeze | DocC catalog, benchmarks target (save/fetch/delete at 1, 100 and 1,000 records; 1 MB and 10 MB payloads), coverage floor, multi-platform CI, public `StorageEngine` decision |
 
 ## Beyond 1.0 (candidates)
