@@ -9,6 +9,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 - Design spec for v0.4 observation (`docs/specs/2026-09-25-swiftlocalstorage-v0.4-observation-design.md`).
+- `changes(of:)` → `AsyncStream<StorageChange<T>>` with `.inserted`, `.updated`, `.deleted` (the stored value), `.cleared` and `.expired`, delivered after each write commits.
+- `updates(of:options:)` → `AsyncThrowingStream<[T], Error>`: a live query that emits current results, then refetches after each change (bursts coalesced) — for SwiftUI `.task` loops.
+- `all(_:batchSize:)` → `StorageSequence<T>`: iterate a large type oldest first, loading `batchSize` records per step.
+- Repository equivalents: `changes()`, `updates(options:)`, `all(batchSize:)`.
+
+### Changed
+- Internal: `StorageEngine.upsert` reports inserted keys so saves are classified as inserted/updated without extra reads; deletes read the stored value only when the type is observed.
 
 ## [0.3.0] - 2026-09-25
 

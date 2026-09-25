@@ -22,8 +22,13 @@ import Foundation
         store(RecordWrite(key: key, kind: .entity, typeName: typeName, payload: payload), now: now)
     }
 
-    func upsert(_ writes: [RecordWrite], now: Date) async throws {
-        writes.forEach { store($0, now: now) }
+    func upsert(_ writes: [RecordWrite], now: Date) async throws -> Set<String> {
+        var inserted = Set<String>()
+        for write in writes {
+            if rows[write.key] == nil { inserted.insert(write.key) }
+            store(write, now: now)
+        }
+        return inserted
     }
 
     func record(forKey key: String) async throws -> RecordSnapshot? {

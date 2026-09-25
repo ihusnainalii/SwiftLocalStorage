@@ -42,6 +42,18 @@ public struct LocalRepository<Entity: Identifiable & Codable & Sendable>: Sendab
         try await storage.page(Entity.self, page: page, pageSize: pageSize, sort: sort)
     }
 
+    public func changes() -> AsyncStream<StorageChange<Entity>> {
+        storage.changes(of: Entity.self)
+    }
+
+    public func updates(options: FetchOptions = .default) -> AsyncThrowingStream<[Entity], any Error> {
+        storage.updates(of: Entity.self, options: options)
+    }
+
+    public func all(batchSize: Int = 100) -> StorageSequence<Entity> {
+        storage.all(Entity.self, batchSize: batchSize)
+    }
+
     public func count() async throws -> Int {
         try await storage.count(Entity.self)
     }
