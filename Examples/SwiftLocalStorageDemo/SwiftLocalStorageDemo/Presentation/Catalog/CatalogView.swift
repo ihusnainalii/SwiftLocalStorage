@@ -10,9 +10,35 @@ struct CatalogView: View {
                 Section {
                     CacheStatusCard(snapshot: viewModel.snapshot)
                 }
-                Section("Products") {
+                if !viewModel.categories.isEmpty {
+                    Section {
+                        CategoryChips(categories: viewModel.categories, selected: viewModel.category) { category in
+                            Task { await viewModel.select(category: category) }
+                        }
+                    } footer: {
+                        Text("Filters with fetch(_:where:), a closure over the cached DTOs.")
+                    }
+                }
+                Section {
+                    if viewModel.products.isEmpty, !viewModel.isLoading {
+                        ContentUnavailableView(
+                            "No cached products", systemImage: "bag",
+                            description: Text("The cache is empty or has expired. Tap Load to fetch again, or pull to refresh.")
+                        )
+                    }
                     ForEach(viewModel.products) { ProductRow(product: $0) }
                         .onDelete { offsets in Task { await viewModel.delete(at: offsets) } }
+                    if viewModel.hasNextPage {
+                        Button("Load more (\(viewModel.products.count) of \(viewModel.totalCount))", systemImage: "chevron.down") {
+                            Task { await viewModel.loadNextPage() }
+                        }
+                    }
+                } header: {
+                    Text("Products")
+                } footer: {
+                    if viewModel.totalCount > 0 {
+                        Text("Showing \(viewModel.products.count) of \(viewModel.totalCount), \(CatalogViewModel.pageSize) per page.")
+                    }
                 }
             }
             .overlay {
@@ -20,11 +46,6 @@ struct CatalogView: View {
                     ProgressView("Fetching…")
                         .padding()
                         .background(.regularMaterial, in: .rect(cornerRadius: 12))
-                } else if viewModel.products.isEmpty {
-                    ContentUnavailableView(
-                        "No cached products", systemImage: "bag",
-                        description: Text("Tap Load, or pull to refresh from the network.")
-                    )
                 }
             }
             .navigationTitle("Catalog")
@@ -94,6 +115,31 @@ private struct CacheStatusCard: View {
         guard let date else { return "Never" }
         let remaining = Int(date.timeIntervalSince(now).rounded(.up))
         return remaining > 0 ? "in \(remaining)s" : "Expired, next Load refetches"
+    }
+}
+
+private struct CategoryChips: View {
+    let categories: [String]
+    let selected: String?
+    let onSelect: (String?) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip("All", isOn: selected == nil) { onSelect(nil) }
+                ForEach(categories, id: \.self) { category in
+                    chip(category, isOn: selected == category) { onSelect(category) }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func chip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.bordered)
+            .tint(isOn ? .accentColor : .secondary)
+            .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 

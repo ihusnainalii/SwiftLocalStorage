@@ -11,6 +11,7 @@ struct LoadCatalogUseCase: Sendable {
         let preferences = try await settings.load()
         var snapshot = try await products.catalog(forceRefresh: forceRefresh, lifetime: preferences.cacheLifetime)
         snapshot.products = Self.sorted(snapshot.products, byPrice: preferences.sortByPrice)
+        snapshot.isSortedByPrice = preferences.sortByPrice
         return snapshot
     }
 

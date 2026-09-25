@@ -43,6 +43,21 @@ struct CachedProductRepository: ProductRepository {
         )
     }
 
+    func cachedPage(_ page: Int, size: Int, category: String?) async throws -> ProductPage {
+        guard let category else {
+            let result = try await storage.page(Product.self, page: page, pageSize: size)
+            return ProductPage(
+                products: result.items, page: page, totalCount: result.totalCount, hasNextPage: result.hasNextPage
+            )
+        }
+        // Category lives inside the DTO, so filter with a closure; slice the filtered result.
+        let matching = try await storage.fetch(Product.self, where: { $0.category == category })
+        let items = Array(matching.dropFirst((page - 1) * size).prefix(size))
+        return ProductPage(
+            products: items, page: page, totalCount: matching.count, hasNextPage: page * size < matching.count
+        )
+    }
+
     func delete(_ products: [Product]) async throws {
         try await storage.delete(products)
     }
