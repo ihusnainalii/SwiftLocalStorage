@@ -44,8 +44,12 @@ protocol StorageEngine: Sendable {
     /// The record for `key`, expired or not.
     func record(forKey key: String) async throws -> RecordSnapshot?
 
-    /// Live records of one kind + type, oldest `createdAt` first.
-    func records(kind: RecordKind, typeName: String, now: Date) async throws -> [RecordSnapshot]
+    /// Live records of one kind + type in `sort` order (ties broken by insertion order), skipping
+    /// `offset` and returning at most `limit`. Expired rows of the type are purged as a side effect.
+    func records(
+        kind: RecordKind, typeName: String, now: Date,
+        sort: StorageSort, limit: Int?, offset: Int
+    ) async throws -> [RecordSnapshot]
 
     /// Number of live records of one kind + type.
     func count(kind: RecordKind, typeName: String, now: Date) async throws -> Int
