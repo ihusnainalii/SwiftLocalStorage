@@ -45,6 +45,7 @@
 - [Testing and mocking](#testing-and-mocking)
 - [Thread safety](#thread-safety)
 - [Using it with SwiftNetworkKit](#using-it-with-swiftnetworkkit)
+- [Demo app](#demo-app)
 - [Best practices](#best-practices)
 - [Known limitations](#known-limitations)
 - [FAQ](#faq)
@@ -544,6 +545,20 @@ struct UserRepository: Sendable {
 
 Network-first, stale-while-revalidate and other policies follow the same shape. A generic cached
 repository is a candidate for a future companion package; see the [roadmap](ROADMAP.md).
+
+---
+
+## Demo app
+
+[`Examples/SwiftLocalStorageDemo`](Examples/SwiftLocalStorageDemo) is a complete SwiftUI iOS app
+built with Clean Architecture + MVVM. It has four tabs: a cache-first **Catalog** with a live expiry
+countdown, **Notes** (a CRUD repository), **Settings** (key-value) and an **Inspector** (counts,
+`removeExpired()`, and the live storage log). The Domain layer never imports the package, and its
+tests use an in-memory store with an injected clock.
+
+```bash
+open Examples/SwiftLocalStorageDemo/SwiftLocalStorageDemo.xcodeproj
+```
 
 ---
 
