@@ -3,7 +3,7 @@ import Foundation
 /// Declares the current version of a stored type's encoded shape. Bump it whenever the DTO changes
 /// incompatibly, and register a ``StorageMigration`` from the previous version.
 ///
-/// Types that don't conform are version 1 — which is what every record written before 0.5 is.
+/// Types that don't conform are version 1, as is every record written before 0.5.
 ///
 /// ```swift
 /// extension User: LocalStorageVersioned {
@@ -44,7 +44,7 @@ public struct StorageMigration: Sendable {
         }
     }
 
-    /// A raw step over the encoded bytes — for when the old type no longer exists in code.
+    /// A raw step over the encoded bytes, for when the old type no longer exists in code.
     public init<Stored>(
         _ stored: Stored.Type, from version: Int,
         transformPayload: @escaping @Sendable (Data) throws -> Data

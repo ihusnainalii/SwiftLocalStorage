@@ -23,7 +23,7 @@ Sibling of [SwiftNetworkKit](https://github.com/ihusnainalii/SwiftNetworkKit): s
 let storage = try LocalStorage()                          // on-disk store named "SwiftLocalStorage"
 let storage = try LocalStorage(configuration: .inMemory)  // tests & previews
 
-// Entities — T: Identifiable & Codable & Sendable, T.ID: Sendable
+// Entities: T: Identifiable & Codable & Sendable, T.ID: Sendable
 try await storage.save(user)                              // upsert, expiration .never
 try await storage.save(user, expiration: .hours(1))
 try await storage.save(users, expiration: .never)         // single transaction
@@ -36,7 +36,7 @@ try await storage.delete(users)
 try await storage.deleteAll(User.self)
 let meta: StorageMetadata? = try await storage.metadata(User.self, id: id)
 
-// Key-value — V: Codable & Sendable
+// Key-value: V: Codable & Sendable
 try await storage.set(settings, forKey: "settings", expiration: .never)
 let s: AppSettings? = try await storage.get(AppSettings.self, forKey: "settings")
 try await storage.remove(forKey: "settings")
@@ -149,7 +149,7 @@ crosses the public boundary.
 ## 9. Logging (v0.2)
 
 - `StorageLogger: Sendable { func log(_ line: String, level: StorageLogLevel) }`
-- `StorageLogLevel: Int, Comparable` — `none, error, info, debug`.
+- `StorageLogLevel: Int, Comparable`: `none, error, info, debug`.
 - `NoopStorageLogger` (default), `OSLogStorageLogger(subsystem:category:)`.
 - Lines contain operation, key and byte count, **never the payload**.
 

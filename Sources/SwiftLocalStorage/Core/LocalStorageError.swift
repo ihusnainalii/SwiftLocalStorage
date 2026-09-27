@@ -1,11 +1,11 @@
 /// The single error type crossing SwiftLocalStorage's public boundary.
 ///
 /// SwiftData, `EncodingError` and `DecodingError` failures are all mapped into one of these cases
-/// before they reach a caller. A missing or expired record is not an error — reads return `nil`.
+/// before they reach a caller. A missing or expired record is not an error: reads return `nil`.
 public enum LocalStorageError: Error, Sendable {
     /// The value could not be encoded; nothing was written.
     case encodingFailed(underlying: any Error & Sendable)
-    /// The stored bytes for `key` could not be decoded into the requested type — usually an
+    /// The stored bytes for `key` could not be decoded into the requested type, usually an
     /// incompatible DTO change or a corrupt record.
     case decodingFailed(key: String, underlying: any Error & Sendable)
     /// The stored record for `key` could not be upgraded to the type's current version: a step is

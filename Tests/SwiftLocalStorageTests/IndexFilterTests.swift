@@ -17,7 +17,7 @@ struct IndexFilterTests {
 
     typealias Engine = EngineContractTests.Engine
 
-    /// ids 1…5: "admin", "admin-ops", "Admin", "member", nil — ranks 50, 40, 30, 20, 10.
+    /// ids 1…5: "admin", "admin-ops", "Admin", "member", nil; ranks 50, 40, 30, 20, 10.
     private func seeded(_ engine: Engine) async throws -> LocalStorage {
         let storage = try engine.storage()
         try await storage.save([

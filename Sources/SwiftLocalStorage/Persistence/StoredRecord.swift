@@ -1,10 +1,10 @@
 import Foundation
 import SwiftData
 
-/// Version 1 of the package's own SwiftData schema: a single envelope table. Frozen — kept only
+/// Version 1 of the package's own SwiftData schema: a single envelope table. Frozen, kept only
 /// so existing stores can migrate.
 ///
-/// Consumer DTOs never become `@Model`s — they are encoded into ``StoredRecord/payload``.
+/// Consumer DTOs never become `@Model`s; they are encoded into ``StoredRecord/payload``.
 /// Any change to this table ships as a new `VersionedSchema` plus a stage in
 /// ``StorageMigrationPlan``, never as an edit to this type.
 enum StorageSchemaV1: VersionedSchema {
@@ -41,7 +41,7 @@ enum StorageSchemaV1: VersionedSchema {
     }
 }
 
-/// Version 2 (frozen — kept so existing stores can migrate) adds `sequence`: a per-store insertion counter that breaks
+/// Version 2 (frozen, kept so existing stores can migrate) adds `sequence`: a per-store insertion counter that breaks
 /// `createdAt` ties, so records saved in one batch keep their insertion order.
 enum StorageSchemaV2: VersionedSchema {
     static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }

@@ -1,8 +1,8 @@
 import Foundation
 import SwiftLocalStorage
 
-// The only layer that imports SwiftLocalStorage. Domain entities are persisted as-is — no
-// `@Model` mirrors — with stable storage names pinned here, out of the Domain layer.
+// The only layer that imports SwiftLocalStorage. Domain entities are persisted as-is, with no
+// `@Model` mirrors and with stable storage names pinned here, out of the Domain layer.
 
 extension Product: LocalStorageNaming, LocalStorageIndexed {
     static var storageTypeName: String { "Product" }

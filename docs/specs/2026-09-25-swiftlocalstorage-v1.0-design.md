@@ -1,4 +1,4 @@
-# SwiftLocalStorage 1.0 — API Freeze Design Spec
+# SwiftLocalStorage 1.0: API Freeze Design Spec
 
 **Status:** Approved (roadmap 1.0) · **Date:** 2026-09-25 · **Target:** `v1.0.0` · **Branch:** `feat/v1.0`
 

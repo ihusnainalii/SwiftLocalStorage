@@ -1,4 +1,4 @@
-# SwiftLocalStorage v0.5 — DTO Migrations Design Spec
+# SwiftLocalStorage v0.5: DTO Migrations Design Spec
 
 **Status:** Approved (roadmap 0.5) · **Date:** 2026-09-25 · **Target:** `v0.5.0` · **Branch:** `feat/dto-migrations`
 
@@ -97,7 +97,7 @@ Records written before 0.5 are version 1, which is what every type was until now
 
 ## 5. Out of scope
 
-Downgrade migrations, cross-type migrations (renaming a type — use `LocalStorageNaming`),
+Downgrade migrations, cross-type migrations (to rename a type, use `LocalStorageNaming`),
 background/batched migration scheduling.
 
 ## 6. Testing

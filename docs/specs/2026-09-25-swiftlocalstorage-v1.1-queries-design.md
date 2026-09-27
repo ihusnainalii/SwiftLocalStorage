@@ -1,4 +1,4 @@
-# SwiftLocalStorage 1.1 — Query Track Design Spec
+# SwiftLocalStorage 1.1: Query Track Design Spec
 
 **Status:** Approved · **Date:** 2026-09-25 · **Target:** `v1.1.0` · **Branch:** `feat/v1.1-queries`
 

@@ -3,7 +3,7 @@
 useDefault = true
 
 [allowlist]
-description = "Test fixtures and demo placeholders — no real credentials in this repo."
+description = "Test fixtures and demo placeholders. There are no real credentials in this repo."
 paths = [
   '''Tests/SwiftLocalStorageTests/Fixtures/.*''',
   '''Examples/SwiftLocalStorageDemo/.*''',
