@@ -249,6 +249,58 @@ Every call is `async`, and every call except the streaming ones `throws` a `Loca
   bytes. That keeps the actor's critical section short and the engine free of generics.
 - **Only value snapshots leave the actor.** Live `@Model` objects never cross an isolation boundary.
 
+### How data flows
+
+**Saving.** Encoding runs on your task, so the storage actor only ever handles bytes. A batch is
+written in one transaction, and observers hear about it only after the commit.
+
+```mermaid
+flowchart LR
+    A["save(value)"] --> B["Encode the DTO<br/>on the caller's task"]
+    B --> C["Compute index values<br/>(indexed types only)"]
+    C --> D["Engine upsert<br/>one transaction"]
+    D -->|committed| E["Publish .inserted / .updated"]
+    D -->|failed| F["Throw LocalStorageError<br/>nothing written, no events"]
+```
+
+**Reading.** An expired record reads as missing and is deleted on the spot. A record saved by an
+older app version is upgraded through your migration steps, decoded, and saved back once, keeping
+its timestamps and sending no change events.
+
+```mermaid
+flowchart TD
+    A["fetch(User.self, id:)"] --> B{"Record stored?"}
+    B -->|no| N["return nil"]
+    B -->|yes| C{"Expired?"}
+    C -->|yes| D["Delete it"] --> N
+    C -->|no| E{"Saved with the current<br/>DTO version?"}
+    E -->|yes| G["Decode"] --> R["return value"]
+    E -->|no| M["Run migration steps<br/>old version → current"]
+    M --> H["Decode"]
+    H --> W["Save the upgraded record back<br/>same timestamps, no events"]
+    W --> R
+    M -.->|step missing or throws| X["Throw migrationFailed<br/>record left untouched"]
+```
+
+**Live queries.** `updates(of:)` subscribes before its first fetch, so no write slips through the
+gap. Writes that land while a refetch is running collapse into one more refetch.
+
+```mermaid
+sequenceDiagram
+    participant View as SwiftUI .task
+    participant Live as updates(of:)
+    participant Store as LocalStorage
+    View->>Live: for try await results
+    Live->>Store: subscribe to changes, then fetch
+    Store-->>View: current results
+    Note over Store: save, save, delete (a burst of writes)
+    Store-->>Live: change signal (a burst coalesces into one)
+    Live->>Store: fetch again (in-store filter for matching: queries)
+    Store-->>View: updated results
+    View-->>Live: view disappears, task cancelled
+    Live->>Store: unsubscribe
+```
+
 ---
 
 ## Core concepts
