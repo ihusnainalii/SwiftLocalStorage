@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-27
+
+Documentation and CI only; the library is unchanged from 1.1.0.
 
 ### Changed
 - Docs and doc comments use plain punctuation: no em dashes or bullet separators; the README tagline reads as a sentence.
@@ -167,7 +170,8 @@ The API is now stable: every 1.x release stays source-compatible with this one.
 - GitHub Actions CI: build with warnings as errors and run tests on macOS.
 - README with installation, usage, key-value, repository, type naming and DTO evolution guidance.
 
-[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/ihusnainalii/SwiftLocalStorage/compare/v0.5.0...v0.6.0
