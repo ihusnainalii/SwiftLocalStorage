@@ -1,0 +1,7 @@
+# Swift Package Index: build and host the DocC catalog.
+# SwiftData is Apple-only, so documentation is built on macOS rather than Linux.
+version: 1
+builder:
+  configs:
+    - documentation_targets: [SwiftLocalStorage]
+      platform: macos-spm

@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Added
+- `.spi.yml` so the Swift Package Index builds and hosts the DocC documentation (built on macOS, since SwiftData is Apple-only).
+
 ## [1.1.1] - 2026-09-27
 
 Documentation and CI only; the library is unchanged from 1.1.0.
