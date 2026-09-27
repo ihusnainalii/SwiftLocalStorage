@@ -31,7 +31,7 @@ public struct FetchOptions: Sendable, Hashable {
         self.offset = offset
     }
 
-    /// Everything, oldest first — what `fetch(_:)` returns.
+    /// Everything, oldest first, which is what `fetch(_:)` returns.
     public static let `default` = FetchOptions()
 }
 

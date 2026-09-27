@@ -6,8 +6,8 @@
 
 <p align="center">
   <strong>Type-safe, concurrency-safe local persistence and caching for Swift.</strong><br />
-  Persist your existing <code>Codable</code> DTOs with SwiftData — no <code>@Model</code> entities to write.<br />
-  Zero dependencies • Swift 6 strict concurrency • Cache expiration • Queries &amp; indexes • Live observation • DTO migrations
+  Persist your existing <code>Codable</code> DTOs with SwiftData. No <code>@Model</code> entities to write.<br />
+  No dependencies, built for Swift 6 concurrency, with cache expiry, indexed queries, live updates and DTO migrations.
 </p>
 
 <p align="center">
@@ -107,7 +107,7 @@ natural fit for caching the DTOs that SwiftNetworkKit decodes.
 |---|---|
 | **Entity storage** | `save`, batch `save` (single transaction), `fetch` by ID, fetch all, `count`, `exists`, `delete`, bulk `delete`, `deleteAll` for any `Identifiable & Codable` type |
 | **Key-value storage** | `set` / `get` / `remove` for any `Codable` value under a string key |
-| **Repositories** | `storage.repository(User.self)` — a typed handle without the `T.self` noise |
+| **Repositories** | `storage.repository(User.self)`, a typed handle without the `T.self` noise |
 | **Queries** | Four sort orders, `limit` / `offset` pushed down to SwiftData, 1-based pages with totals, and closure filters on any DTO field |
 | **Indexed fields** | Declare up to three fields per type; `matching:` filters, `orderedBy:`, counts and pages on them run inside SwiftData |
 | **Observation** | Typed change feeds (`AsyncStream`), coalescing live queries for SwiftUI, and batched iteration of large types |
@@ -206,8 +206,8 @@ Every call is `async`, and every call except the streaming ones `throws` a `Loca
 | Delete | `delete(T.self, id:)`, `delete([values])`, `deleteAll(T.self)` | `delete(id:)`, `delete(_:)`, `deleteAll()` |
 | Metadata | `metadata(T.self, id:)` → `StorageMetadata?` | `metadata(id:)` |
 | Observe | `changes(of:)`, `updates(of:options:)`, `updates(of:matching:orderedBy:options:)`, `all(_:batchSize:)` | `changes()`, `updates(options:)`, `updates(matching:…)`, `all(batchSize:)` |
-| Key-value | `set(_:forKey:expiration:)`, `get(_:forKey:)`, `remove(forKey:)` | — |
-| Maintenance | `removeExpired()`, `removeAll()`, `migrateAll(T.self)` | — |
+| Key-value | `set(_:forKey:expiration:)`, `get(_:forKey:)`, `remove(forKey:)` | not available |
+| Maintenance | `removeExpired()`, `removeAll()`, `migrateAll(T.self)` | not available |
 
 | Protocol your type can adopt | Purpose |
 |---|---|

@@ -2,7 +2,7 @@
 public struct LocalStorageConfiguration: Sendable {
     /// The store name; distinct names are distinct on-disk stores.
     public var name: String
-    /// `true` keeps everything in memory — for tests and previews.
+    /// `true` keeps everything in memory, for tests and previews.
     public var isStoredInMemoryOnly: Bool
     public var encoder: any StorageEncoder
     public var decoder: any StorageDecoder

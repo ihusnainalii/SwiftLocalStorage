@@ -1,6 +1,6 @@
 import Foundation
 
-/// Persists `Codable` DTOs locally — no `@Model` types required.
+/// Persists `Codable` DTOs locally, with no `@Model` types required.
 ///
 /// ```swift
 /// let storage = try LocalStorage()
@@ -206,7 +206,7 @@ public final class LocalStorage: Sendable {
 
     private func delete<T: Identifiable & Codable & Sendable>(_ type: T.Type, keys: [String]) async throws {
         let typeName = StorageKey.typeName(of: type)
-        // `.deleted` carries the stored value, so read it first — but only if someone is watching.
+        // `.deleted` carries the stored value, so read it first, but only if someone is watching.
         var deleted: [T] = []
         if hub.hasObservers(typeName) {
             for key in keys {
@@ -284,7 +284,7 @@ public final class LocalStorage: Sendable {
         return removed
     }
 
-    /// Deletes everything in this store — entities and key-value entries alike.
+    /// Deletes everything in this store: entities and key-value entries alike.
     public func removeAll() async throws {
         try await perform("remove all", level: .info) { try await engine.deleteAll() }
         hub.publishToAll(.cleared)
@@ -293,7 +293,7 @@ public final class LocalStorage: Sendable {
     // MARK: - Indexed queries
 
     /// Values of `type` matching every condition in `filters` (ANDed), ordered by an indexed field
-    /// when `order` is given (else by `options.sort`), sliced by `options` — all inside the store.
+    /// when `order` is given (else by `options.sort`), sliced by `options`, all inside the store.
     ///
     /// ```swift
     /// let admins = try await storage.fetch(User.self, matching: [.equals("role", "admin")],
@@ -347,8 +347,8 @@ public final class LocalStorage: Sendable {
         return StoragePage(items: items, page: page, pageSize: pageSize, totalCount: total)
     }
 
-    /// Resolves `filters` / `order` against `type`'s declaration, first re-indexing — once per
-    /// type per instance — records saved before the type was indexed or with another declaration.
+    /// Resolves `filters` / `order` against `type`'s declaration, first re-indexing (once per
+    /// type per instance) records saved before the type was indexed or with another declaration.
     private func indexQuery<T: Identifiable & Codable & Sendable & LocalStorageIndexed>(
         _ type: T.Type, filters: [StorageFilter], order: StorageIndexOrder?
     ) async throws -> IndexQuery {
@@ -378,7 +378,7 @@ public final class LocalStorage: Sendable {
 
     /// Upgrades every live stored value of `type` whose version is older than
     /// ``LocalStorageVersioned/storageVersion``; returns how many were upgraded. Reads already
-    /// migrate lazily — call this to do it all up front, e.g. at launch after a release.
+    /// migrate lazily; call this to do it all up front, e.g. at launch after a release.
     ///
     /// Stops at the first record that fails to migrate or decode, throwing its error.
     @discardableResult

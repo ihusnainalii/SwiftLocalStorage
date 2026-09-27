@@ -1,5 +1,5 @@
 /// Every stored value of a type, oldest first, fetched `batchSize` records at a time as iteration
-/// advances — so a large type is never fully in memory. Created by ``LocalStorage/all(_:batchSize:)``.
+/// advances, so a large type is never fully in memory. Created by ``LocalStorage/all(_:batchSize:)``.
 ///
 /// Values inserted during iteration appear at the end. Values deleted during iteration can shift
 /// the window by one batch position, so a value may be skipped.

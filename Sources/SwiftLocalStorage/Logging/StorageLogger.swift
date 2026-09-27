@@ -15,7 +15,7 @@ public enum StorageLogLevel: Int, Sendable, Comparable, CaseIterable {
 }
 
 /// The logging sink. ``LocalStorage`` builds each line and skips the call entirely when the
-/// configured ``StorageLogLevel`` filters it out. Lines carry operation, key and byte count —
+/// configured ``StorageLogLevel`` filters it out. Lines carry operation, key and byte count,
 /// never payload contents.
 ///
 /// Default: ``NoopStorageLogger``.

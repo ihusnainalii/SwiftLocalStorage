@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bookkeeping for one stored record — for debugging and cache strategies.
+/// Bookkeeping for one stored record, useful for debugging and cache strategies.
 public struct StorageMetadata: Sendable, Hashable {
     public let createdAt: Date
     public let updatedAt: Date

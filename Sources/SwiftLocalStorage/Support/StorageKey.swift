@@ -1,7 +1,7 @@
 /// Opt in to a stable storage name for a type.
 ///
 /// By default a type is stored under its module-qualified name (`String(reflecting:)`), so two
-/// `User` types in different modules never collide — but renaming or moving the type orphans
+/// `User` types in different modules never collide, but renaming or moving the type orphans
 /// its stored records. Conform and return a fixed string before shipping to keep them reachable:
 ///
 /// ```swift

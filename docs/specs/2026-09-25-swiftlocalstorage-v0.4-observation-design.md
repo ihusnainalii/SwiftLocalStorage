@@ -1,4 +1,4 @@
-# SwiftLocalStorage v0.4 — Observation Design Spec
+# SwiftLocalStorage v0.4: Observation Design Spec
 
 **Status:** Approved (roadmap 0.4) · **Date:** 2026-09-25 · **Target:** `v0.4.0` · **Branch:** `feat/observation`
 

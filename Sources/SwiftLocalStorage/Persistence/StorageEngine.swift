@@ -19,7 +19,7 @@ struct RecordWrite: Sendable, Equatable {
     var index: IndexValues?
 }
 
-/// An immutable copy of a stored record — never a live `@Model` object, so it can leave the actor.
+/// An immutable copy of a stored record, never a live `@Model` object, so it can leave the actor.
 struct RecordSnapshot: Sendable, Equatable {
     var key: String
     var kind: RecordKind

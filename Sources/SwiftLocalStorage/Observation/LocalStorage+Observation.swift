@@ -16,7 +16,7 @@ extension LocalStorage {
     }
 
     /// The current values of `type` (sorted and sliced by `options`), then the values again after
-    /// every change to the type — a live query for SwiftUI:
+    /// every change to the type. A live query for SwiftUI:
     ///
     /// ```swift
     /// .task {
@@ -33,7 +33,7 @@ extension LocalStorage {
     }
 
     /// The values of `type` matching every condition in `filters`, ordered and sliced like
-    /// ``fetch(_:matching:orderedBy:options:)``, then again after every change to the type — a live
+    /// ``fetch(_:matching:orderedBy:options:)``, then again after every change to the type. A live
     /// query that filters, orders and slices in the store:
     ///
     /// ```swift

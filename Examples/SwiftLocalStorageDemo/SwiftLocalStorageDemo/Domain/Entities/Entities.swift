@@ -1,6 +1,6 @@
 import Foundation
 
-// Domain entities: plain value types. The Domain layer imports only Foundation — it knows nothing
+// Domain entities: plain value types. The Domain layer imports only Foundation and knows nothing
 // about SwiftLocalStorage, SwiftData or the network.
 
 struct Product: Codable, Identifiable, Sendable, Hashable {

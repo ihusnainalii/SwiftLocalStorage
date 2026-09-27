@@ -1,7 +1,7 @@
 import Foundation
 
 extension LocalStorage {
-    /// Builds a storage over any engine with an injectable clock — for tests only.
+    /// Builds a storage over any engine with an injectable clock, for tests only.
     @_spi(SwiftLocalStorageTesting) public convenience init(
         configuration: LocalStorageConfiguration = .inMemory,
         engine: InMemoryStorageEngine,
@@ -10,7 +10,7 @@ extension LocalStorage {
         self.init(configuration: configuration, engine: engine as any StorageEngine, now: now)
     }
 
-    /// Opens a SwiftData store with an injectable clock — for tests only.
+    /// Opens a SwiftData store with an injectable clock, for tests only.
     @_spi(SwiftLocalStorageTesting) public convenience init(
         configuration: LocalStorageConfiguration,
         now: @escaping @Sendable () -> Date

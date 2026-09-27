@@ -1,4 +1,4 @@
-# SwiftLocalStorage v0.3 — Queries Design Spec
+# SwiftLocalStorage v0.3: Queries Design Spec
 
 **Status:** Approved (roadmap 0.3) · **Date:** 2026-09-25 · **Target:** `v0.3.0` · **Branch:** `feat/queries`
 
@@ -8,12 +8,12 @@ existing signature changes.
 ## 1. Goal
 
 Let callers read a *slice* of a type instead of everything: sort, limit/offset, pages with
-totals, and filtering on DTO fields — without a query language that could lock the API in.
+totals, and filtering on DTO fields, without a query language that could lock the API in.
 
 ## 2. Public API
 
 ```swift
-// Sort + slice — pushed down to SwiftData (only the requested rows are read and decoded).
+// Sort + slice, pushed down to SwiftData (only the requested rows are read and decoded).
 let latest = try await storage.fetch(User.self, options: FetchOptions(sort: .newestFirst, limit: 20))
 let next   = try await storage.fetch(User.self, options: FetchOptions(limit: 20, offset: 20))
 

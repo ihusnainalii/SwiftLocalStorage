@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+
+### Changed
+- Docs and doc comments use plain punctuation: no em dashes or bullet separators; the README tagline reads as a sentence.
+
 ## [1.1.0] - 2026-09-26
 
 ### Added
@@ -76,7 +80,7 @@ The API is now stable: every 1.x release stays source-compatible with this one.
 ### Added
 - Design spec for v0.4 observation (`docs/specs/2026-09-25-swiftlocalstorage-v0.4-observation-design.md`).
 - `changes(of:)` → `AsyncStream<StorageChange<T>>` with `.inserted`, `.updated`, `.deleted` (the stored value), `.cleared` and `.expired`, delivered after each write commits.
-- `updates(of:options:)` → `AsyncThrowingStream<[T], Error>`: a live query that emits current results, then refetches after each change (bursts coalesced) — for SwiftUI `.task` loops.
+- `updates(of:options:)` → `AsyncThrowingStream<[T], Error>`: a live query that emits current results, then refetches after each change (bursts coalesced), built for SwiftUI `.task` loops.
 - `all(_:batchSize:)` → `StorageSequence<T>`: iterate a large type oldest first, loading `batchSize` records per step.
 - Repository equivalents: `changes()`, `updates(options:)`, `all(batchSize:)`.
 - Observation tests on both engines: event kinds and order, stored values on delete, type isolation, no events on failure, unsubscribe on cancel/release, live-query re-emit and coalescing, batched iteration.
@@ -135,10 +139,10 @@ The API is now stable: every 1.x release stays source-compatible with this one.
 
 ### Added
 - `CacheExpiration` (`.never`, `.seconds`, `.minutes`, `.hours`, `.days`, `.date`) on `save`, batch `save`, `set` and repository `save`; expired records read as absent and are purged lazily.
-- `StorageMetadata` via `metadata(_:id:)` / `repository.metadata(id:)` — created/updated/expiry dates, payload size, `isExpired`.
+- `StorageMetadata` via `metadata(_:id:)` / `repository.metadata(id:)`: created/updated/expiry dates, payload size, `isExpired`.
 - `removeExpired()` to reclaim space from expired records; returns the number deleted.
 - Bulk `delete(_ values: [T])` and `repository.delete(_:)`.
-- `StorageLogger` sink with `StorageLogLevel` (`none`, `error`, `info`, `debug`), `NoopStorageLogger` (default) and `OSLogStorageLogger`; configured via `LocalStorageConfiguration.logger` / `.logLevel`. Lines carry operation, key and byte count — never payloads or error descriptions.
+- `StorageLogger` sink with `StorageLogLevel` (`none`, `error`, `info`, `debug`), `NoopStorageLogger` (default) and `OSLogStorageLogger`; configured via `LocalStorageConfiguration.logger` / `.logLevel`. Lines carry operation, key and byte count, never payloads or error descriptions.
 - CI runs the test suite under ThreadSanitizer.
 - Full public README (overview, architecture, every API area, expiration semantics, DTO evolution, errors, logging, testing, thread safety, SwiftNetworkKit integration, FAQ, versioning).
 - `CONTRIBUTING.md` (branch naming, Conventional Commits, per-change changelog, release process), `SECURITY.md` and `ROADMAP.md`.

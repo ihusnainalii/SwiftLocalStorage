@@ -1,4 +1,4 @@
-# SwiftLocalStorage v0.6 — Indexed Fields Design Spec
+# SwiftLocalStorage v0.6: Indexed Fields Design Spec
 
 **Status:** Approved (roadmap 0.6) · **Date:** 2026-09-25 · **Target:** `v0.6.0` · **Branch:** `feat/indexed-fields`
 

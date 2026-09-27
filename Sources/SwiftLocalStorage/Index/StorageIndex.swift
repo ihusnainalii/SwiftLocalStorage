@@ -134,7 +134,7 @@ struct IndexQuery: Sendable, Equatable {
     var maximums: [Double?] = Array(repeating: nil, count: IndexValues.slots)
     var order: Order?
 
-    /// Whether `record` satisfies every condition — the in-memory engine's evaluator.
+    /// Whether `record` satisfies every condition. This is the in-memory engine's evaluator.
     func matches(_ record: IndexValues?) -> Bool {
         if matchesNothing { return false }
         for slot in 0..<IndexValues.slots {
