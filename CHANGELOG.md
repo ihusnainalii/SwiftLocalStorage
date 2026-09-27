@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 - Docs and doc comments use plain punctuation: no em dashes or bullet separators; the README tagline reads as a sentence.
 
+### Added
+- README "How data flows": Mermaid diagrams of the save path, the read path (expiry, DTO migration, write-back) and live queries; also published to the wiki as "How It Works".
+
 ## [1.1.0] - 2026-09-26
 
 ### Added
