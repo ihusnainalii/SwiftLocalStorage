@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 - `.spi.yml` so the Swift Package Index builds and hosts the DocC documentation (built on macOS, since SwiftData is Apple-only).
 
+### Fixed
+- CI no longer cancels runs on `main` when a newer commit is pushed; only superseded pull-request runs are cancelled, so every commit on `main` gets a complete result instead of a cancelled (red) check.
+
 ## [1.1.1] - 2026-09-27
 
 Documentation and CI only; the library is unchanged from 1.1.0.
