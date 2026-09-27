@@ -19,7 +19,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
 </p>
 
-- **Version:** 1.1.0 (stable API: every 1.x release is source-compatible; see [Versioning](#versioning)) <!-- x-release-please-version -->
+- **Version:** 1.1.0 (stable API: every 1.x release is source-compatible; see [Versioning](#versioning))
 - **Docs:** DocC catalog in [`Sources/SwiftLocalStorage/SwiftLocalStorage.docc`](Sources/SwiftLocalStorage/SwiftLocalStorage.docc) (a static archive is attached to each release)
 - **Swift:** 6.0 (`swift-tools-version:6.0`, Swift 6 language mode)
 - **Platforms:** iOS 17+, macOS 14+, tvOS 17+, watchOS 10+, visionOS 1+
@@ -146,7 +146,7 @@ Apple-only.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "1.1.0"), // x-release-please-version
+    .package(url: "https://github.com/ihusnainalii/SwiftLocalStorage.git", from: "1.1.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: ["SwiftLocalStorage"]),

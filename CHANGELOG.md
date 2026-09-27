@@ -13,6 +13,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 - README "How data flows": Mermaid diagrams of the save path, the read path (expiry, DTO migration, write-back) and live queries; also published to the wiki as "How It Works".
 
+### Removed
+- release-please (workflow job, config and manifest). Releases are cut by hand; publishing a GitHub Release now runs a workflow that re-checks the tag and attaches coverage and the static DocC site. It never commits or opens pull requests, so the Release check no longer fails on every push to `main`.
+
 ## [1.1.0] - 2026-09-26
 
 ### Added

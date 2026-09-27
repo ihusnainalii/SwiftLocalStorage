@@ -65,10 +65,13 @@ swift run -c release SwiftLocalStorageBenchmarks          # before/after numbers
 
 1. On a `chore/release-x.y.z` or feature branch, rename `## [Unreleased]` to
    `## [x.y.z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]`, update the compare links, and
-   bump `version.txt`.
+   bump `version.txt`, the version shown in `README.md` and the demo's `MARKETING_VERSION`.
 2. Commit as `chore(release): x.y.z` and merge the PR with a merge commit.
 3. Tag `main` with `git tag -a vx.y.z -m "SwiftLocalStorage x.y.z"`, push the tag, and publish a
-   GitHub Release using that version's changelog section as the notes.
+   GitHub Release using that version's changelog section as the notes. Publishing it runs the
+   Release workflow, which re-checks the tag and attaches coverage and a static DocC site.
+
+Releases are authored by a maintainer. No bot commits or release PRs are used.
 
 ## License
 
